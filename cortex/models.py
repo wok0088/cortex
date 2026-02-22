@@ -97,20 +97,20 @@ class ApiKey(BaseModel):
 
 class AddMemoryRequest(BaseModel):
     """添加记忆请求"""
-    user_id: str = Field(description="用户 ID")
-    content: str = Field(description="记忆内容")
+    user_id: str = Field(description="用户 ID", min_length=1, max_length=100)
+    content: str = Field(description="记忆内容", min_length=1, max_length=10000)
     memory_type: MemoryType = Field(description="记忆类型")
     role: Optional[Role] = Field(default=None, description="消息角色（仅 session 类型）")
-    session_id: Optional[str] = Field(default=None, description="会话 ID")
-    tags: list[str] = Field(default_factory=list, description="标签")
-    importance: float = Field(default=0.0, description="重要度评分")
+    session_id: Optional[str] = Field(default=None, description="会话 ID", max_length=100)
+    tags: list[str] = Field(default_factory=list, description="标签", max_length=20)
+    importance: float = Field(default=0.0, ge=0.0, le=1.0, description="重要度评分")
     metadata: Optional[dict] = Field(default=None, description="扩展元数据")
 
 
 class SearchMemoryRequest(BaseModel):
     """搜索记忆请求"""
-    user_id: str = Field(description="用户 ID")
-    query: str = Field(description="搜索查询")
+    user_id: str = Field(description="用户 ID", min_length=1, max_length=100)
+    query: str = Field(description="搜索查询", min_length=1, max_length=1000)
     limit: int = Field(default=10, ge=1, le=100, description="返回数量上限")
     memory_type: Optional[MemoryType] = Field(default=None, description="按类型过滤")
     session_id: Optional[str] = Field(default=None, description="按会话过滤")
@@ -141,13 +141,13 @@ class SearchResultResponse(BaseModel):
 
 class RegisterTenantRequest(BaseModel):
     """注册租户请求"""
-    name: str = Field(description="租户名称")
+    name: str = Field(description="租户名称", min_length=1, max_length=100)
 
 
 class CreateProjectRequest(BaseModel):
     """创建项目请求"""
     tenant_id: str = Field(description="租户 ID")
-    name: str = Field(description="项目名称")
+    name: str = Field(description="项目名称", min_length=1, max_length=100)
 
 
 class GenerateApiKeyRequest(BaseModel):
@@ -191,3 +191,12 @@ class HistoryResponse(BaseModel):
     session_id: str
     messages: list[MemoryResponse]
     total: int
+
+
+class UpdateMemoryRequest(BaseModel):
+    """更新记忆请求"""
+    user_id: str = Field(description="用户 ID", min_length=1, max_length=100)
+    content: Optional[str] = Field(default=None, description="新的记忆内容", max_length=10000)
+    tags: Optional[list[str]] = Field(default=None, description="新的标签", max_length=20)
+    importance: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="新的重要度评分")
+    metadata: Optional[dict] = Field(default=None, description="新的扩展元数据")

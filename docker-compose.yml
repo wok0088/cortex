@@ -1,0 +1,21 @@
+version: "3.8"
+
+services:
+  cortex:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - cortex_data:/app/data
+    environment:
+      # ⚠️ 生产环境必须设置管理员 Token
+      - CORTEX_ADMIN_TOKEN=${CORTEX_ADMIN_TOKEN:-}
+      # 可选配置
+      - CORTEX_EMBEDDING_MODEL=${CORTEX_EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
+      - CORTEX_CORS_ORIGINS=${CORTEX_CORS_ORIGINS:-*}
+      - CORTEX_RATE_LIMIT=${CORTEX_RATE_LIMIT:-0}
+      - CORTEX_LOG_LEVEL=${CORTEX_LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+volumes:
+  cortex_data:

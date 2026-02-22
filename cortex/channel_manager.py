@@ -1,48 +1,26 @@
 """
 渠道管理器
 
-管理租户注册、项目创建/删除、API Key 生成/验证等渠道管理功能。
-这是 MetaStore 的业务层封装。
+封装租户、项目和 API Key 的管理逻辑。
 """
 
 from typing import Optional
 
+from cortex.logger import get_logger
 from cortex.models import ApiKey, Project, Tenant
 from cortex.store.meta_store import MetaStore
+
+logger = get_logger(__name__)
 
 
 class ChannelManager:
     """
     渠道管理器
 
-    使用示例：
-    ```python
-    from cortex.channel_manager import ChannelManager
-
-    cm = ChannelManager()
-
-    # 注册租户
-    tenant = cm.register_tenant("携程旅行")
-
-    # 创建项目
-    project = cm.create_project(tenant.id, "酒店 AI 助手")
-
-    # 生成 API Key
-    api_key = cm.generate_api_key(tenant.id, project.id)
-    print(f"API Key: {api_key.key}")
-
-    # 验证 API Key
-    verified = cm.verify_api_key(api_key.key)
-    ```
+    提供租户注册、项目管理和 API Key 管理的业务接口。
     """
 
     def __init__(self, meta_store: Optional[MetaStore] = None):
-        """
-        初始化渠道管理器
-
-        Args:
-            meta_store: 元数据存储实例，默认自动创建
-        """
         self._meta_store = meta_store or MetaStore()
 
     # ----------------------------------------------------------
@@ -50,16 +28,10 @@ class ChannelManager:
     # ----------------------------------------------------------
 
     def register_tenant(self, name: str) -> Tenant:
-        """
-        注册新租户
-
-        Args:
-            name: 租户名称
-
-        Returns:
-            创建的 Tenant 对象
-        """
-        return self._meta_store.create_tenant(name)
+        """注册新租户"""
+        tenant = self._meta_store.create_tenant(name)
+        logger.info("注册租户: id=%s, name=%s", tenant.id, tenant.name)
+        return tenant
 
     def get_tenant(self, tenant_id: str) -> Optional[Tenant]:
         """获取租户信息"""
@@ -74,20 +46,10 @@ class ChannelManager:
     # ----------------------------------------------------------
 
     def create_project(self, tenant_id: str, name: str) -> Project:
-        """
-        创建项目
-
-        Args:
-            tenant_id: 租户 ID
-            name: 项目名称
-
-        Returns:
-            创建的 Project 对象
-
-        Raises:
-            ValueError: 租户不存在
-        """
-        return self._meta_store.create_project(tenant_id, name)
+        """创建项目"""
+        project = self._meta_store.create_project(tenant_id, name)
+        logger.info("创建项目: id=%s, tenant=%s, name=%s", project.id, tenant_id, project.name)
+        return project
 
     def get_project(self, project_id: str) -> Optional[Project]:
         """获取项目信息"""
@@ -99,40 +61,28 @@ class ChannelManager:
 
     def delete_project(self, project_id: str) -> bool:
         """删除项目"""
-        return self._meta_store.delete_project(project_id)
+        success = self._meta_store.delete_project(project_id)
+        if success:
+            logger.info("删除项目: id=%s", project_id)
+        return success
 
     # ----------------------------------------------------------
     # API Key 管理
     # ----------------------------------------------------------
 
     def generate_api_key(self, tenant_id: str, project_id: str) -> ApiKey:
-        """
-        生成 API Key
-
-        Args:
-            tenant_id: 租户 ID
-            project_id: 项目 ID
-
-        Returns:
-            创建的 ApiKey 对象
-
-        Raises:
-            ValueError: 租户或项目不存在
-        """
-        return self._meta_store.generate_api_key(tenant_id, project_id)
+        """生成 API Key"""
+        api_key = self._meta_store.generate_api_key(tenant_id, project_id)
+        logger.info("生成 API Key: tenant=%s, project=%s", tenant_id, project_id)
+        return api_key
 
     def verify_api_key(self, key: str) -> Optional[ApiKey]:
-        """
-        验证 API Key
-
-        Args:
-            key: API Key 值
-
-        Returns:
-            如果有效返回 ApiKey 对象，否则返回 None
-        """
+        """验证 API Key"""
         return self._meta_store.verify_api_key(key)
 
     def revoke_api_key(self, key: str) -> bool:
         """吊销 API Key"""
-        return self._meta_store.revoke_api_key(key)
+        success = self._meta_store.revoke_api_key(key)
+        if success:
+            logger.info("吊销 API Key")
+        return success

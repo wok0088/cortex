@@ -20,14 +20,36 @@ CHROMA_PERSIST_DIR = DATA_DIR / "chroma_db"
 # SQLite 配置
 SQLITE_DB_PATH = DATA_DIR / "cortex_meta.db"
 
+# Embedding 模型
+# 默认使用 BAAI/bge-small-zh-v1.5（中文 C-MTEB 顶尖、仅 ~50MB、免费开源）
+# 可切换为 BAAI/bge-m3（多语言更强）或其他 sentence-transformers 兼容模型
+EMBEDDING_MODEL = os.getenv("CORTEX_EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
+
 # 搜索默认参数
 DEFAULT_SEARCH_LIMIT = 10
 DEFAULT_HISTORY_LIMIT = 50
 
 # API 配置
 API_TITLE = "Cortex — 通用 AI 记忆中间件"
-API_VERSION = "0.1.0"
+API_VERSION = "0.2.0"
 API_DESCRIPTION = "为各类 AI 项目提供按渠道接入、按用户隔离的记忆存储与语义检索服务。"
 
-# 不需要认证的路径前缀
+# 管理员 Token（用于渠道管理 API 的认证）
+# ⚠️ 生产环境必须设置：export CORTEX_ADMIN_TOKEN=your_secret_token
+ADMIN_TOKEN = os.getenv("CORTEX_ADMIN_TOKEN", "")
+
+# CORS 配置
+# 多个域名用逗号分隔，如 "http://localhost:3000,https://example.com"
+# 设置为 "*" 允许所有域（仅开发环境使用）
+CORS_ORIGINS = os.getenv("CORTEX_CORS_ORIGINS", "*")
+
+# 速率限制配置（每分钟最大请求数，0 表示不限制）
+RATE_LIMIT_PER_MINUTE = int(os.getenv("CORTEX_RATE_LIMIT", "0"))
+
+# 输入长度限制
+MAX_CONTENT_LENGTH = 10000  # 记忆内容最大字符数
+MAX_NAME_LENGTH = 100       # 名称最大字符数
+MAX_TAGS_COUNT = 20         # 标签最大数量
+
+# 不需要认证的路径前缀（注意：渠道管理现在需要管理员 Token）
 AUTH_EXCLUDED_PREFIXES = ["/v1/channels", "/docs", "/redoc", "/openapi.json", "/health"]

@@ -1,25 +1,36 @@
 """
 Cortex REST API 入口
 
-FastAPI 应用初始化，注册路由和中间件。
+FastAPI 应用初始化，注册路由、中间件、CORS 和全局异常处理。
 """
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import ValidationError
 
 from cortex import config
+from cortex.logger import get_logger
 from cortex.store.vector_store import VectorStore
 from cortex.store.meta_store import MetaStore
 from cortex.memory_manager import MemoryManager
 from cortex.channel_manager import ChannelManager
 from api.middleware import ApiKeyAuthMiddleware
+from api.rate_limiter import RateLimiterMiddleware
 from api.routes import memories, channels
+
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理：启动时初始化存储和管理器"""
+    logger.info("Cortex %s 正在启动...", config.API_VERSION)
+    logger.info("Embedding 模型: %s", config.EMBEDDING_MODEL)
+    logger.info("数据目录: %s", config.DATA_DIR)
+
     # 初始化存储层
     vector_store = VectorStore()
     meta_store = MetaStore()
@@ -29,11 +40,11 @@ async def lifespan(app: FastAPI):
         vector_store=vector_store, meta_store=meta_store
     )
     app.state.channel_manager = ChannelManager(meta_store=meta_store)
-
-    # 将 meta_store 存储到 app state，供中间件使用
     app.state.meta_store = meta_store
 
+    logger.info("Cortex 启动完成 ✅")
     yield
+    logger.info("Cortex 正在关闭...")
 
 
 def create_app() -> FastAPI:
@@ -49,14 +60,65 @@ def create_app() -> FastAPI:
     app.include_router(memories.router)
     app.include_router(channels.router)
 
-    # 注册认证中间件
-    # 注意：中间件在 lifespan 之后才会被调用，此时 meta_store 已初始化
-    # 但 Starlette 的中间件设计要求在 app 创建时注册
-    # 因此使用延迟初始化的方式
+    # CORS 配置
+    origins = config.CORS_ORIGINS
+    if origins == "*":
+        allow_origins = ["*"]
+    else:
+        allow_origins = [o.strip() for o in origins.split(",") if o.strip()]
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allow_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # 速率限制中间件
+    if config.RATE_LIMIT_PER_MINUTE > 0:
+        app.add_middleware(
+            RateLimiterMiddleware,
+            max_requests_per_minute=config.RATE_LIMIT_PER_MINUTE,
+        )
+
+    # API Key 认证中间件
     meta_store = MetaStore()
     app.add_middleware(ApiKeyAuthMiddleware, meta_store=meta_store)
 
+    # ----------------------------------------------------------
+    # 全局异常处理
+    # ----------------------------------------------------------
+
+    @app.exception_handler(ValidationError)
+    async def validation_error_handler(request: Request, exc: ValidationError):
+        """Pydantic 验证错误 → 400"""
+        return JSONResponse(
+            status_code=400,
+            content={"error": "validation_error", "detail": exc.errors()},
+        )
+
+    @app.exception_handler(ValueError)
+    async def value_error_handler(request: Request, exc: ValueError):
+        """业务逻辑错误 → 400"""
+        return JSONResponse(
+            status_code=400,
+            content={"error": "bad_request", "detail": str(exc)},
+        )
+
+    @app.exception_handler(Exception)
+    async def general_error_handler(request: Request, exc: Exception):
+        """未预期的异常 → 500"""
+        logger.error("未预期的异常: %s %s → %s", request.method, request.url.path, exc)
+        return JSONResponse(
+            status_code=500,
+            content={"error": "internal_error", "detail": "服务器内部错误，请稍后重试"},
+        )
+
+    # ----------------------------------------------------------
     # 基础端点
+    # ----------------------------------------------------------
+
     @app.get("/", tags=["根"])
     async def root():
         """Cortex API 欢迎页"""
@@ -76,4 +138,3 @@ def create_app() -> FastAPI:
 
 # 应用实例
 app = create_app()
-

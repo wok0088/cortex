@@ -1,10 +1,11 @@
 """
 记忆路由
 
-提供记忆的增删查搜 REST API：
+提供记忆的增删改查搜 REST API：
 - POST   /v1/memories         — 添加记忆
 - POST   /v1/memories/search  — 语义搜索
 - GET    /v1/memories         — 列出记忆
+- PUT    /v1/memories/{id}    — 更新记忆
 - DELETE /v1/memories/{id}    — 删除记忆
 - GET    /v1/sessions/{session_id}/history — 获取会话历史
 - GET    /v1/users/{user_id}/stats        — 获取统计信息
@@ -16,6 +17,7 @@ from fastapi import APIRouter, Request, Query, HTTPException
 
 from cortex.models import (
     AddMemoryRequest,
+    UpdateMemoryRequest,
     SearchMemoryRequest,
     MemoryResponse,
     SearchResultResponse,
@@ -130,6 +132,34 @@ async def list_memories(
         limit=limit,
     )
     return [_dict_to_response(r) for r in results]
+
+
+@router.put("/memories/{fragment_id}", response_model=MemoryResponse, summary="更新记忆")
+async def update_memory(
+    fragment_id: str,
+    body: UpdateMemoryRequest,
+    request: Request,
+):
+    """
+    更新指定记忆片段。
+
+    只需传入要更新的字段，未传入的字段保持不变。
+    如果更新了 content，会自动重新向量化。
+    """
+    manager = _get_manager(request)
+    result = manager.update(
+        tenant_id=request.state.tenant_id,
+        project_id=request.state.project_id,
+        user_id=body.user_id,
+        fragment_id=fragment_id,
+        content=body.content,
+        tags=body.tags,
+        importance=body.importance,
+        metadata=body.metadata,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="记忆片段不存在")
+    return _dict_to_response(result)
 
 
 @router.delete("/memories/{fragment_id}", summary="删除记忆")
