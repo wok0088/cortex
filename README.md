@@ -44,8 +44,8 @@ Engrama 是一个**轻量级、通用的 AI 记忆中间件**，解决 AI 项目
 ### 安装
 
 ```bash
-git clone https://github.com/wok0088/cortex.git
-cd cortex
+git clone https://github.com/wok0088/engrama.git
+cd engrama
 
 # 创建虚拟环境
 python3.12 -m venv .venv
@@ -201,10 +201,10 @@ python -m mcp_server --transport sse --port 8001
 ```json
 {
   "mcpServers": {
-    "cortex": {
-      "command": "/path/to/cortex/.venv/bin/python",
+    "engrama": {
+      "command": "/path/to/engrama/.venv/bin/python",
       "args": ["-m", "mcp_server"],
-      "cwd": "/path/to/cortex"
+      "cwd": "/path/to/engrama"
     }
   }
 }
@@ -217,10 +217,10 @@ python -m mcp_server --transport sse --port 8001
 ```json
 {
   "mcpServers": {
-    "cortex": {
-      "command": "/path/to/cortex/.venv/bin/python",
+    "engrama": {
+      "command": "/path/to/engrama/.venv/bin/python",
       "args": ["-m", "mcp_server"],
-      "cwd": "/path/to/cortex"
+      "cwd": "/path/to/engrama"
     }
   }
 }
