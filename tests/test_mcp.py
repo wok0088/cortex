@@ -27,7 +27,7 @@ def tmp_dir():
 @pytest.fixture
 def services(tmp_dir):
     """初始化业务层服务和一个项目级 API Key"""
-    os.environ["CORTEX_DATA_DIR"] = tmp_dir
+    os.environ["ENGRAMA_DATA_DIR"] = tmp_dir
 
     vector_store = VectorStore(persist_directory=os.path.join(tmp_dir, "chroma"))
     meta_store = MetaStore(db_path=os.path.join(tmp_dir, "test.db"))
@@ -52,7 +52,7 @@ def services(tmp_dir):
         "personal_key": personal_key.key,
     }
 
-    del os.environ["CORTEX_DATA_DIR"]
+    del os.environ["ENGRAMA_DATA_DIR"]
 
 
 class TestMCPAuth:

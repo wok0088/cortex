@@ -326,12 +326,12 @@ python -m pytest tests/test_api.py -v      # API 集成
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `CORTEX_DATA_DIR` | `./data` | 数据持久化目录 |
-| `CORTEX_ADMIN_TOKEN` | `""` (免认证) | 渠道管理 API 管理员 Token |
-| `CORTEX_EMBEDDING_MODEL` | `BAAI/bge-small-zh-v1.5` | Embedding 模型 |
-| `CORTEX_CORS_ORIGINS` | `*` | CORS 允许的域名 |
-| `CORTEX_RATE_LIMIT` | `0` (不限制) | 每分钟最大请求数 |
-| `CORTEX_LOG_LEVEL` | `INFO` | 日志级别 |
+| `ENGRAMA_DATA_DIR` | `./data` | 数据持久化目录 |
+| `ENGRAMA_ADMIN_TOKEN` | `""` (免认证) | 渠道管理 API 管理员 Token |
+| `ENGRAMA_EMBEDDING_MODEL` | `BAAI/bge-small-zh-v1.5` | Embedding 模型 |
+| `ENGRAMA_CORS_ORIGINS` | `*` | CORS 允许的域名 |
+| `ENGRAMA_RATE_LIMIT` | `0` (不限制) | 每分钟最大请求数 |
+| `ENGRAMA_LOG_LEVEL` | `INFO` | 日志级别 |
 
 ## 🐳 Docker 部署
 
@@ -340,7 +340,7 @@ python -m pytest tests/test_api.py -v      # API 集成
 docker-compose up --build
 
 # 生产环境（设置管理员 Token）
-CORTEX_ADMIN_TOKEN=your_secret docker-compose up --build -d
+ENGRAMA_ADMIN_TOKEN=your_secret docker-compose up --build -d
 ```
 
 ## 📄 License

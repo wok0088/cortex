@@ -85,7 +85,11 @@ class ChannelManager:
 
     def revoke_api_key(self, key: str) -> bool:
         """吊销 API Key"""
+        api_key = self.verify_api_key(key)
         success = self._meta_store.revoke_api_key(key)
-        if success:
-            logger.info("吊销 API Key")
+        if success and api_key:
+            logger.info(
+                "吊销 API Key: key=%s***, tenant=%s, project=%s", 
+                key[:8], api_key.tenant_id, api_key.project_id
+            )
         return success

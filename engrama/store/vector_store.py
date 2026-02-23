@@ -9,7 +9,7 @@ Collection 策略（v0.2.1）：
   - 同一 Project 下的所有用户共享一个 Collection，避免海量 Collection 问题
 
 默认使用 BAAI/bge-small-zh-v1.5 中文 Embedding 模型，
-可通过环境变量 CORTEX_EMBEDDING_MODEL 切换。
+可通过环境变量 ENGRAMA_EMBEDDING_MODEL 切换。
 """
 
 import json

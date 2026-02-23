@@ -2,7 +2,7 @@
 Engrama 统一日志配置
 
 提供结构化日志输出，关键操作均有日志记录。
-支持通过环境变量 CORTEX_LOG_LEVEL 控制日志级别。
+支持通过环境变量 ENGRAMA_LOG_LEVEL 控制日志级别。
 """
 
 import logging
@@ -24,7 +24,7 @@ def get_logger(name: str) -> logging.Logger:
 
     # 避免重复添加 handler
     if not logger.handlers:
-        level = os.getenv("CORTEX_LOG_LEVEL", "INFO").upper()
+        level = os.getenv("ENGRAMA_LOG_LEVEL", "INFO").upper()
         logger.setLevel(getattr(logging, level, logging.INFO))
 
         handler = logging.StreamHandler(sys.stdout)

@@ -29,7 +29,7 @@ def tmp_dir():
 def client(tmp_dir):
     """创建测试客户端，使用临时目录存储数据"""
     # 需要在 import 之前设置环境变量
-    os.environ["CORTEX_DATA_DIR"] = tmp_dir
+    os.environ["ENGRAMA_DATA_DIR"] = tmp_dir
 
     # 重新导入以使用新配置
     from api.main import create_app
@@ -44,7 +44,7 @@ def client(tmp_dir):
         yield client
 
     # 清理环境变量
-    del os.environ["CORTEX_DATA_DIR"]
+    del os.environ["ENGRAMA_DATA_DIR"]
 
 
 class TestAPI:
