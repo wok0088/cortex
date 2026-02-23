@@ -83,7 +83,7 @@ curl -X POST http://localhost:8000/v1/channels/api-keys \
   -d '{"tenant_id": "TENANT_ID", "project_id": "PROJECT_ID"}'
 # 返回: {"key": "ctx_xxxx", ...}
 
-# 4️⃣ 存入记忆
+# 4️⃣ 存入记忆（项目级 Key需传 user_id，用户级 Key可省略）
 curl -X POST http://localhost:8000/v1/memories \
   -H "X-API-Key: ctx_xxxx" \
   -H "Content-Type: application/json" \
@@ -142,7 +142,7 @@ Tenant（租户：企业 / 个人开发者）
 | `POST` | `/v1/channels/tenants` | 注册租户 |
 | `GET` | `/v1/channels/tenants` | 列出租户 |
 | `POST` | `/v1/channels/projects` | 创建项目 |
-| `POST` | `/v1/channels/api-keys` | 生成 API Key |
+| `POST` | `/v1/channels/api-keys` | 生成 API Key (支持绑定特定的 user_id) |
 
 ### 认证方式
 
@@ -153,6 +153,10 @@ X-API-Key: ctx_xxxxxxxxxxxx
 ```
 
 API Key 会自动关联到对应的 Tenant 和 Project，无需在每次请求中重复指定。
+
+**💡 API Key 分级策略：**
+*   **项目级 Key（B端场景）**：生成时不指定 `user_id`。API 调用方必须在请求体或 Query 参数中显式传入被操作的 `user_id`，以支持全局用户管理。
+*   **用户级 Key（C端场景）**：生成时直接绑定具体的 `user_id`。持有该 Key 的客户端或 AI 实体可以**完全省略所有的 `user_id` 请求参数**，引擎会自动赋予该绑定分身的身份。若被伪造跨域调用将直接遭遇 `403` 阻断。
 
 渠道管理 API 在生产环境需要管理员 Token：
 
@@ -189,8 +193,11 @@ Engrama 提供 MCP (Model Context Protocol) 接口，让 AI 模型可以**直接
 MCP Server 启动时必须提供 API Key（与 HTTP API 使用同一套 Key）：
 
 ```bash
-# stdio 模式（供 Claude Desktop / Cursor 使用）
+# stdio 模式（客户端 C 端集成，利用用户级 API Key 自动绑定 user_id）
 ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server
+
+# stdio 模式（B端平台调用，携带项目级 Key 通过环境变量指认默认用户）
+ENGRAMA_API_KEY=ctx_xxxx ENGRAMA_USER_ID=user_001 python -m mcp_server
 
 # 或者通过 CLI 参数
 python -m mcp_server --api-key ctx_xxxx
@@ -279,7 +286,7 @@ cortex/
 ├── mcp_server/              # MCP Server
 │   ├── server.py            # MCP Tools 定义
 │   └── __main__.py          # 入口
-├── tests/                   # 测试（47 个）
+├── tests/                   # 测试（68 个，涵盖鉴权和隔离边界测试）
 ├── Dockerfile               # Docker 镜像构建
 ├── docker-compose.yml       # Docker Compose 编排
 ├── data/                    # 运行时数据（自动生成）
@@ -294,7 +301,7 @@ cortex/
 | Web 框架 | FastAPI | 高性能 API |
 | MCP | mcp (FastMCP) | AI 模型直接调用 |
 | 向量数据库 | ChromaDB | 语义搜索引擎 |
-| Embedding | BAAI/bge-small-zh-v1.5 | 中文语义模型 |
+| Embedding | BAAI/bge-m3 | 本地多语言语义模型 |
 | 元数据存储 | SQLite | 轻量级关系型存储 |
 | 数据验证 | Pydantic v2 | 类型安全的数据模型 |
 | 测试 | pytest | 单元测试 + 集成测试 |
