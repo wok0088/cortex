@@ -8,6 +8,9 @@ Engrama 统一日志配置
 import logging
 import os
 import sys
+import threading
+
+_logger_lock = threading.Lock()
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -22,19 +25,20 @@ def get_logger(name: str) -> logging.Logger:
     """
     logger = logging.getLogger(f"engrama.{name}")
 
-    # 避免重复添加 handler
-    if not logger.handlers:
-        level = os.getenv("ENGRAMA_LOG_LEVEL", "INFO").upper()
-        logger.setLevel(getattr(logging, level, logging.INFO))
+    # 使用锁保护 handler 检查和添加，避免多线程竞态导致重复 handler
+    with _logger_lock:
+        if not logger.handlers:
+            level = os.getenv("ENGRAMA_LOG_LEVEL", "INFO").upper()
+            logger.setLevel(getattr(logging, level, logging.INFO))
 
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(getattr(logging, level, logging.INFO))
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setLevel(getattr(logging, level, logging.INFO))
 
-        formatter = logging.Formatter(
-            fmt="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+            formatter = logging.Formatter(
+                fmt="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+            handler.setFormatter(formatter)
+            logger.addHandler(handler)
 
     return logger

@@ -132,14 +132,15 @@ class MemoryManager:
             session_id=session_id,
         )
 
-        # 更新被命中记忆的 hit_count
-        for item in results:
+        # 批量更新被命中记忆的 hit_count（1 次 get + 1 次 update 替代 N 次单独操作）
+        if results:
+            hit_ids = [item["id"] for item in results]
             try:
-                self._vector_store.increment_hit_count(
-                    tenant_id, project_id, user_id, item["id"]
+                self._vector_store.batch_increment_hit_count(
+                    tenant_id, project_id, hit_ids
                 )
             except Exception:
-                pass
+                logger.warning("Failed to batch increment hit counts", exc_info=True)
 
         logger.info("搜索记忆: user=%s, query='%s', 结果=%d", user_id, query[:50], len(results))
         return results

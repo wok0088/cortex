@@ -83,8 +83,7 @@ def create_app() -> FastAPI:
         )
 
     # API Key 认证中间件
-    meta_store = MetaStore()
-    app.add_middleware(ApiKeyAuthMiddleware, meta_store=meta_store)
+    app.add_middleware(ApiKeyAuthMiddleware)
 
     # ----------------------------------------------------------
     # 全局异常处理

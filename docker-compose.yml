@@ -1,7 +1,5 @@
-version: "3.8"
-
 services:
-  cortex:
+  engrama:
     build: .
     ports:
       - "8000:8000"
@@ -11,7 +9,7 @@ services:
       # ⚠️ 生产环境必须设置管理员 Token
       - ENGRAMA_ADMIN_TOKEN=${ENGRAMA_ADMIN_TOKEN:-}
       # 可选配置
-      - ENGRAMA_EMBEDDING_MODEL=${ENGRAMA_EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
+      - ENGRAMA_EMBEDDING_MODEL=${ENGRAMA_EMBEDDING_MODEL:-BAAI/bge-m3}
       - ENGRAMA_CORS_ORIGINS=${ENGRAMA_CORS_ORIGINS:-*}
       - ENGRAMA_RATE_LIMIT=${ENGRAMA_RATE_LIMIT:-0}
       - ENGRAMA_LOG_LEVEL=${ENGRAMA_LOG_LEVEL:-INFO}

@@ -2,6 +2,9 @@
 Engrama 配置管理
 
 集中管理所有配置项，支持通过环境变量覆盖默认值。
+
+注意：所有配置值在模块导入时固定，运行时修改环境变量不会生效。
+测试中需要覆盖配置时，请使用 monkeypatch.setattr(config, ...) 而非 os.environ。
 """
 
 import os
@@ -31,8 +34,9 @@ DEFAULT_SEARCH_LIMIT = 10
 DEFAULT_HISTORY_LIMIT = 50
 
 # API 配置
+from engrama import __version__
 API_TITLE = "Engrama — 通用 AI 记忆中间件"
-API_VERSION = "0.4.0"
+API_VERSION = __version__
 API_DESCRIPTION = "为各类 AI 项目提供按渠道接入、按用户隔离的记忆存储与语义检索服务。"
 
 # 管理员 Token（用于渠道管理 API 的认证）
@@ -52,5 +56,6 @@ MAX_CONTENT_LENGTH = 10000  # 记忆内容最大字符数
 MAX_NAME_LENGTH = 100       # 名称最大字符数
 MAX_TAGS_COUNT = 20         # 标签最大数量
 
-# 不需要认证的路径前缀（注意：渠道管理现在需要管理员 Token）
-AUTH_EXCLUDED_PREFIXES = ["/v1/channels", "/docs", "/redoc", "/openapi.json", "/health"]
+# 不需要认证的路径前缀（渠道管理现在需要单独管理管理员 Token）
+# /health 不在此列表中，因为 middleware 已硬编码 path in ("/", "/health") 跳过
+AUTH_EXCLUDED_PREFIXES = ["/docs", "/redoc", "/openapi.json"]

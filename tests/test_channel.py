@@ -71,11 +71,18 @@ class TestChannelManager:
         assert len(projects) == 2
 
     def test_delete_project(self, cm):
-        """删除项目"""
+        """删除项目（需传 tenant_id）"""
         tenant = cm.register_tenant("测试")
         project = cm.create_project(tenant.id, "待删除")
-        assert cm.delete_project(project.id)
+        assert cm.delete_project(project.id, tenant_id=tenant.id)
         assert cm.get_project(project.id) is None
+
+    def test_delete_project_wrong_tenant(self, cm):
+        """用错误 tenant_id 删除项目应失败"""
+        tenant = cm.register_tenant("测试")
+        project = cm.create_project(tenant.id, "项目")
+        assert not cm.delete_project(project.id, tenant_id="wrong_tenant")
+        assert cm.get_project(project.id) is not None
 
     def test_api_key_flow(self, cm):
         """完整的 API Key 流程：生成 → 验证 → 吊销"""
@@ -85,6 +92,7 @@ class TestChannelManager:
         # 生成
         api_key = cm.generate_api_key(tenant.id, project.id)
         assert api_key.key.startswith("eng_")
+        assert api_key.key_id  # 应有 key_id
         assert api_key.tenant_id == tenant.id
         assert api_key.project_id == project.id
 
@@ -93,8 +101,8 @@ class TestChannelManager:
         assert verified is not None
         assert verified.tenant_id == tenant.id
 
-        # 吊销
-        assert cm.revoke_api_key(api_key.key)
+        # 按 key_id 吊销
+        assert cm.revoke_api_key(api_key.key_id)
         assert cm.verify_api_key(api_key.key) is None
 
     def test_verify_invalid_key(self, cm):
@@ -107,7 +115,7 @@ class TestChannelManager:
         project = cm.create_project(tenant.id, "项目")
         api_key = cm.generate_api_key(tenant.id, project.id)
 
-        cm.delete_project(project.id)
+        cm.delete_project(project.id, tenant_id=tenant.id)
 
         # API Key 也应该被删除
         assert cm.verify_api_key(api_key.key) is None
@@ -127,5 +135,29 @@ class TestChannelManager:
         assert verified.user_id == "lisi"
 
         # 项目删除后级联注销验证
-        cm.delete_project(project.id)
+        cm.delete_project(project.id, tenant_id=tenant.id)
         assert cm.verify_api_key(api_key.key) is None
+
+    def test_list_api_keys(self, cm):
+        """列出项目下的 API Key"""
+        tenant = cm.register_tenant("测试")
+        project = cm.create_project(tenant.id, "项目")
+        cm.generate_api_key(tenant.id, project.id)
+        cm.generate_api_key(tenant.id, project.id, user_id="user1")
+
+        keys = cm.list_api_keys(project.id)
+        assert len(keys) == 2
+
+    def test_delete_tenant(self, cm):
+        """删除租户（级联吊销所有 Key）"""
+        tenant = cm.register_tenant("测试")
+        project = cm.create_project(tenant.id, "项目")
+        api_key = cm.generate_api_key(tenant.id, project.id)
+
+        assert cm.delete_tenant(tenant.id)
+        assert cm.get_tenant(tenant.id) is None
+        assert cm.verify_api_key(api_key.key) is None
+
+    def test_delete_tenant_nonexistent(self, cm):
+        """删除不存在的租户返回 False"""
+        assert not cm.delete_tenant("nonexistent")

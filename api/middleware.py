@@ -4,8 +4,16 @@ API Key 认证中间件 + 管理员 Token 认证
 - 记忆 API：从 X-API-Key 请求头提取 API Key 验证
 - 渠道管理 API：从 X-Admin-Token 请求头验证管理员身份
 - 文档和健康检查路由跳过认证
+
+设计说明：
+- MetaStore 使用 threading.local 进行线程级连接管理，这与 Starlette 的
+  BaseHTTPMiddleware 在线程池中运行 sync 路由的模型兼容。每个线程拥有
+  独立的 SQLite 连接，避免跨线程共享连接的并发问题。
+- 路由函数定义为 sync（def）而非 async（async def），因此 FastAPI 会在
+  线程池中运行它们，与 MetaStore 的 threading.local 策略保持一致。
 """
 
+import hmac
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -20,16 +28,21 @@ logger = get_logger(__name__)
 class ApiKeyAuthMiddleware(BaseHTTPMiddleware):
     """API Key + 管理员 Token 认证中间件"""
 
-    def __init__(self, app, meta_store: MetaStore):
+    def __init__(self, app):
         super().__init__(app)
-        self._meta_store = meta_store
+
+    def _get_meta_store(self, request: Request):
+        """延迟获取 meta_store 实例，避免与 lifespan 的重复初始化"""
+        # middleware 在 init 时 app.state 可能还没准备好 meta_store
+        # 因此在 request 时动态获取
+        return getattr(request.app.state, "meta_store", None)
 
     async def dispatch(self, request: Request, call_next):
         """处理请求认证"""
         path = request.url.path
 
-        # 公开路径：根、健康检查、文档
-        if path in ("/", "/health") or path.startswith(("/docs", "/redoc", "/openapi.json")):
+        # 公开路径：根据配置排除
+        if any(path.startswith(prefix) for prefix in config.AUTH_EXCLUDED_PREFIXES) or path in ("/", "/health"):
             return await call_next(request)
 
         # 渠道管理路径：需要管理员 Token
@@ -53,7 +66,7 @@ class ApiKeyAuthMiddleware(BaseHTTPMiddleware):
                 content={"error": "unauthorized", "detail": "缺少管理员 Token，请在 X-Admin-Token 请求头中提供"},
             )
 
-        if admin_token != config.ADMIN_TOKEN:
+        if not hmac.compare_digest(admin_token.encode(), config.ADMIN_TOKEN.encode()):
             logger.warning("无效的管理员 Token 尝试: %s", request.url.path)
             return JSONResponse(
                 status_code=403,
@@ -71,7 +84,15 @@ class ApiKeyAuthMiddleware(BaseHTTPMiddleware):
                 content={"error": "unauthorized", "detail": "缺少 API Key，请在 X-API-Key 请求头中提供"},
             )
 
-        api_key = self._meta_store.verify_api_key(api_key_value)
+        meta_store = self._get_meta_store(request)
+        if meta_store is None:
+            logger.error("MetaStore 未初始化")
+            return JSONResponse(
+                status_code=500,
+                content={"error": "internal_error", "detail": "存储服务未就绪"},
+            )
+
+        api_key = meta_store.verify_api_key(api_key_value)
         if api_key is None:
             logger.warning("无效的 API Key 尝试")
             return JSONResponse(

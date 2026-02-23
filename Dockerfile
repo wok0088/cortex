@@ -6,12 +6,13 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 预下载 Embedding 模型（避免首次启动慢）
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-zh-v1.5')"
+# 预下载默认模型到 /app/data/models/bge-m3（与 config 默认路径一致）
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-m3', cache_folder='/app/data/models/bge-m3')"
 
 # 复制源码
 COPY engrama/ engrama/
 COPY api/ api/
+COPY mcp_server/ mcp_server/
 
 # 创建数据目录
 RUN mkdir -p /app/data

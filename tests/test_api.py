@@ -12,10 +12,7 @@ import tempfile
 import pytest
 from fastapi.testclient import TestClient
 
-from engrama.store.vector_store import VectorStore
-from engrama.store.meta_store import MetaStore
-from engrama.memory_manager import MemoryManager
-from engrama.channel_manager import ChannelManager
+from engrama import config
 
 
 @pytest.fixture
@@ -26,32 +23,26 @@ def tmp_dir():
 
 
 @pytest.fixture
-def client(tmp_dir):
+def client(tmp_dir, monkeypatch):
     """创建测试客户端，使用临时目录存储数据"""
-    # 需要在 import 之前设置环境变量
-    os.environ["ENGRAMA_DATA_DIR"] = tmp_dir
+    # 使用 monkeypatch.setattr 替代 os.environ，确保配置模块级常量被正确覆盖
+    monkeypatch.setattr(config, "DATA_DIR", tmp_dir)
+    monkeypatch.setattr(config, "CHROMA_PERSIST_DIR", os.path.join(tmp_dir, "chroma_db"))
+    monkeypatch.setattr(config, "SQLITE_DB_PATH", os.path.join(tmp_dir, "engrama_meta.db"))
+    monkeypatch.setattr(config, "ADMIN_TOKEN", "")
 
-    # 重新导入以使用新配置
     from api.main import create_app
-    from engrama.store.vector_store import VectorStore
-    from engrama.store.meta_store import MetaStore
-
     app = create_app()
 
-    # 手动初始化 app state（因为 lifespan 在 TestClient 中也会运行）
-    # 但我们需要覆盖中间件的 meta_store 以使用临时目录
     with TestClient(app) as client:
         yield client
-
-    # 清理环境变量
-    del os.environ["ENGRAMA_DATA_DIR"]
 
 
 class TestAPI:
     """API 集成测试"""
 
-    def _setup_channel(self, client) -> tuple[str, str, str]:
-        """创建租户 + 项目 + API Key，返回 (tenant_id, project_id, api_key)"""
+    def _setup_channel(self, client) -> tuple[str, str, str, str]:
+        """创建租户 + 项目 + API Key，返回 (tenant_id, project_id, api_key, key_id)"""
         # 注册租户
         resp = client.post("/v1/channels/tenants", json={"name": "测试公司"})
         assert resp.status_code == 200
@@ -69,9 +60,11 @@ class TestAPI:
             "tenant_id": tenant_id, "project_id": project_id
         })
         assert resp.status_code == 200
-        api_key = resp.json()["key"]
+        data = resp.json()
+        api_key = data["key"]
+        key_id = data["key_id"]
 
-        return tenant_id, project_id, api_key
+        return tenant_id, project_id, api_key, key_id
 
     # ----------------------------------------------------------
     # 基础端点
@@ -114,9 +107,10 @@ class TestAPI:
         assert resp.json()["name"] == "酒店 AI"
 
     def test_generate_api_key(self, client):
-        """生成 API Key"""
-        _, _, api_key = self._setup_channel(client)
+        """生成 API Key（包含 key_id）"""
+        _, _, api_key, key_id = self._setup_channel(client)
         assert api_key.startswith("eng_")
+        assert key_id  # key_id 应非空
 
     def test_list_tenants(self, client):
         """列出租户"""
@@ -125,6 +119,89 @@ class TestAPI:
         resp = client.get("/v1/channels/tenants")
         assert resp.status_code == 200
         assert len(resp.json()) >= 2
+
+    # ----------------------------------------------------------
+    # API Key 列出 / 吊销路由
+    # ----------------------------------------------------------
+
+    def test_list_api_keys(self, client):
+        """列出项目下的 API Key"""
+        tenant_id, project_id, _, key_id = self._setup_channel(client)
+
+        resp = client.get("/v1/channels/api-keys", params={"project_id": project_id})
+        assert resp.status_code == 200
+        keys = resp.json()
+        assert len(keys) >= 1
+        # 不应暴露完整 Key
+        assert all("key" not in k or k.get("key") is None for k in keys)
+        assert all("key_id" in k for k in keys)
+
+    def test_revoke_api_key(self, client):
+        """按 key_id 吊销 API Key"""
+        tenant_id, project_id, api_key, key_id = self._setup_channel(client)
+
+        # 吊销
+        resp = client.delete(f"/v1/channels/api-keys/{key_id}")
+        assert resp.status_code == 200
+
+        # 再用原始 Key 调用应返回 401
+        resp = client.get(
+            "/v1/memories",
+            params={"user_id": "u1"},
+            headers={"X-API-Key": api_key},
+        )
+        assert resp.status_code == 401
+
+    # ----------------------------------------------------------
+    # 删除租户路由
+    # ----------------------------------------------------------
+
+    def test_delete_tenant(self, client):
+        """删除租户及其所有项目和 Key"""
+        tenant_id, project_id, api_key, key_id = self._setup_channel(client)
+
+        resp = client.delete(f"/v1/channels/tenants/{tenant_id}")
+        assert resp.status_code == 200
+
+        # 租户不存在了
+        resp = client.get("/v1/channels/tenants")
+        tenant_ids = [t["id"] for t in resp.json()]
+        assert tenant_id not in tenant_ids
+
+        # API Key 失效
+        resp = client.get(
+            "/v1/memories",
+            params={"user_id": "u1"},
+            headers={"X-API-Key": api_key},
+        )
+        assert resp.status_code == 401
+
+    def test_delete_tenant_nonexistent(self, client):
+        """删除不存在的租户返回 404"""
+        resp = client.delete("/v1/channels/tenants/nonexistent")
+        assert resp.status_code == 404
+
+    # ----------------------------------------------------------
+    # delete_project 的 tenant 校验
+    # ----------------------------------------------------------
+
+    def test_delete_project_with_tenant_check(self, client):
+        """删除项目时需传入正确的 tenant_id"""
+        tenant_id, project_id, _, _ = self._setup_channel(client)
+
+        # 用错误的 tenant_id 删除 → 404
+        resp = client.delete(
+            f"/v1/channels/projects/{project_id}",
+            params={"tenant_id": "wrong_tenant"},
+        )
+        assert resp.status_code == 404
+
+        # 用正确的 tenant_id 删除 → 成功
+        resp = client.delete(
+            f"/v1/channels/projects/{project_id}",
+            params={"tenant_id": tenant_id},
+        )
+        assert resp.status_code == 200
 
     # ----------------------------------------------------------
     # 认证测试
@@ -150,7 +227,7 @@ class TestAPI:
 
     def test_add_memory(self, client):
         """添加记忆"""
-        _, _, api_key = self._setup_channel(client)
+        _, _, api_key, _ = self._setup_channel(client)
         resp = client.post(
             "/v1/memories",
             json={
@@ -166,7 +243,7 @@ class TestAPI:
 
     def test_personal_key_behavior(self, client):
         """测试用户级 Key：可以省略 user_id，传入不同的 user_id 会 403"""
-        tenant_id, project_id, _ = self._setup_channel(client)
+        tenant_id, project_id, project_key, _ = self._setup_channel(client)
 
         # 1. 生成用户级 Key
         req = {
@@ -223,16 +300,68 @@ class TestAPI:
         assert resp_put.status_code == 200
         assert resp_put.json()["content"] == "我喜欢踢足球"
 
-        # 6. DELETE 路由：省略 user_id 进行删除
+        # 6. /users/me/stats 路由：省略 user_id 获取统计 (此时有一条 preference 记忆)
+        resp_stats = client.get(
+            "/v1/users/me/stats",
+            headers={"X-API-Key": personal_key},
+        )
+        assert resp_stats.status_code == 200
+        stats_data = resp_stats.json()
+        assert stats_data["user_id"] == "zhangsan"
+        assert stats_data["total_memories"] == 1
+        assert stats_data["by_type"].get("preference") == 1
+
+        # 7. 项目级 Key 调用 /users/me/stats 应该返回 400
+        resp_proj_stats = client.get(
+            "/v1/users/me/stats",
+            headers={"X-API-Key": project_key},
+        )
+        assert resp_proj_stats.status_code == 400
+        assert "user_id" in resp_proj_stats.text
+
+        # 8. DELETE 路由：省略 user_id 进行删除
         resp_del = client.delete(
             f"/v1/memories/{fragment_id}",
             headers={"X-API-Key": personal_key},
         )
         assert resp_del.status_code == 200
 
+    def test_update_memory(self, client):
+        """测试独立记忆更新（部分更新、更新不存在片段等）"""
+        _, _, project_key, _ = self._setup_channel(client)
+        headers = {"X-API-Key": project_key}
+
+        # 1. 准备测试数据
+        create_resp = client.post(
+            "/v1/memories",
+            json={"user_id": "u1", "content": "原始数据", "memory_type": "factual", "tags": ["tag1", "tag2"]},
+            headers=headers
+        )
+        assert create_resp.status_code == 200
+        frag_id = create_resp.json()["id"]
+
+        # 2. 项目级 Key 部分更新（只更新 tags，不更新 content）
+        update_resp1 = client.put(
+            f"/v1/memories/{frag_id}",
+            json={"user_id": "u1", "tags": ["tag_new"]},
+            headers=headers
+        )
+        assert update_resp1.status_code == 200
+        data1 = update_resp1.json()
+        assert data1["content"] == "原始数据"
+        assert data1["tags"] == ["tag_new"]
+
+        # 3. 更新不存在的记忆 (404)
+        update_resp2 = client.put(
+            "/v1/memories/invalid_id",
+            json={"user_id": "u1", "content": "新内容"},
+            headers=headers
+        )
+        assert update_resp2.status_code == 404
+
     def test_search_memories(self, client):
         """语义搜索"""
-        _, _, api_key = self._setup_channel(client)
+        _, _, api_key, _ = self._setup_channel(client)
         headers = {"X-API-Key": api_key}
 
         # 添加几条记忆
@@ -256,7 +385,7 @@ class TestAPI:
 
     def test_list_memories(self, client):
         """列出记忆"""
-        _, _, api_key = self._setup_channel(client)
+        _, _, api_key, _ = self._setup_channel(client)
         headers = {"X-API-Key": api_key}
 
         client.post("/v1/memories", json={
@@ -269,7 +398,7 @@ class TestAPI:
 
     def test_delete_memory(self, client):
         """删除记忆"""
-        _, _, api_key = self._setup_channel(client)
+        _, _, api_key, _ = self._setup_channel(client)
         headers = {"X-API-Key": api_key}
 
         # 添加
@@ -296,7 +425,7 @@ class TestAPI:
 
     def test_session_history(self, client):
         """获取会话历史"""
-        _, _, api_key = self._setup_channel(client)
+        _, _, api_key, _ = self._setup_channel(client)
         headers = {"X-API-Key": api_key}
 
         import time
@@ -330,7 +459,7 @@ class TestAPI:
 
     def test_user_stats(self, client):
         """获取统计信息"""
-        _, _, api_key = self._setup_channel(client)
+        _, _, api_key, _ = self._setup_channel(client)
         headers = {"X-API-Key": api_key}
 
         client.post("/v1/memories", json={

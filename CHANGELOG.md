@@ -2,6 +2,16 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/) 版本规范。
 
+## [0.4.2] - 2026-02-23
+
+### 🐛 缺陷修复 & 安全加固
+- **访问控制修复** — `rate_limiter.py` 严格遵守运算符优先级，解决短路评估可能导致的隐患，同时清理空列表键值移除内存泄漏风险。
+- **防止时序攻击** — `api/middleware.py` 使用 `hmac.compare_digest` 实现了对 Admin Token 的常量时间对比防护。
+- **中间件提纯** — 消除 `api/main.py` 关于 `MetaStore` 的双重重初始化竞争，统一拦截器从 `app.state` 获取实例引用，节约系统开支。
+- **配置规范性** — `middleware.py` 修复了 `AUTH_EXCLUDED_PREFIXES` 声明却未使用的缺陷；`models.py` 将 `tags` 的默认参数标准化为 `Field(default_factory=list)` 避免 Pydantic 解析问题。
+- **逻辑优化** — `memories.py` 移除对空字符串做强硬依赖的业务判断；`engrama/channel_manager.py` 移除冗余重复的业务日志；`config.py` 收敛各处零散定义统一 `API_VERSION` 来源。
+- **测试覆盖增强** — 重构与补充大量边界化测试集（由 69 增至 74 项集成用例全部通过），涵盖管理员权限熔断、非法 Key 跨域、流量控制溢出等异常用例。
+
 ## [0.4.1] - 2026-02-23
 
 ### 🐛 缺陷修复

@@ -112,20 +112,7 @@ def add_memory(body: AddMemoryRequest, request: Request):
         importance=body.importance,
         metadata=body.metadata,
     )
-    return MemoryResponse(
-        id=fragment.id,
-        user_id=fragment.user_id,
-        content=fragment.content,
-        memory_type=fragment.memory_type,
-        role=fragment.role,
-        session_id=fragment.session_id,
-        tags=fragment.tags,
-        hit_count=fragment.hit_count,
-        importance=fragment.importance,
-        created_at=fragment.created_at,
-        updated_at=fragment.updated_at,
-        metadata=fragment.metadata,
-    )
+    return MemoryResponse(**fragment.to_response_dict())
 
 
 @router.post("/memories/search", response_model=SearchResultResponse, summary="语义搜索")
@@ -256,6 +243,8 @@ def get_session_history(
 # 统计信息
 # ----------------------------------------------------------
 
+# ⚠️ 路由顺序依赖：/users/me/stats 必须在 /users/{user_id}/stats 之前注册，
+# 否则 "me" 会被 FastAPI 当作 {user_id} 路径参数匹配。
 @router.get(
     "/users/me/stats",
     response_model=StatsResponse,
@@ -264,14 +253,20 @@ def get_session_history(
 def get_my_stats(request: Request):
     """获取当前绑定用户（需用户级 Key）的记忆统计信息。"""
     manager = _get_manager(request)
-    resolved_user_id = _resolve_user_id(request, "")
+    # 不允许项目级 Key 访问 /users/me/stats (因为不知道是谁的 stats)
+    bound_user_id = getattr(request.state, "bound_user_id", None)
+    if not bound_user_id:
+        raise HTTPException(
+            status_code=400,
+            detail="缺少 user_id 参数（项目级 API Key 不能调用 /users/me/stats，必须指定具体的用户 ID）",
+        )
     stats = manager.get_stats(
         tenant_id=request.state.tenant_id,
         project_id=request.state.project_id,
-        user_id=resolved_user_id,
+        user_id=bound_user_id,
     )
     return StatsResponse(
-        user_id=resolved_user_id,
+        user_id=bound_user_id,
         total_memories=stats["total"],
         by_type=stats["by_type"],
     )

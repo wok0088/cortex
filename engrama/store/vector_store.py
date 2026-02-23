@@ -8,10 +8,11 @@ Collection 策略（v0.2.1）：
   - 用户隔离通过 metadata 中的 user_id 字段进行 where 过滤
   - 同一 Project 下的所有用户共享一个 Collection，避免海量 Collection 问题
 
-默认使用 BAAI/bge-small-zh-v1.5 中文 Embedding 模型，
+默认使用 BAAI/bge-m3 多语言 Embedding 模型，
 可通过环境变量 ENGRAMA_EMBEDDING_MODEL 切换。
 """
 
+import hashlib
 import json
 import os
 from datetime import datetime, timezone
@@ -70,13 +71,15 @@ class VectorStore:
 
         格式：{tenant_id}__{project_id}
         ChromaDB 要求名称 3-63 字符、仅字母数字下划线和点号。
+        超过 63 字符时截断并附加 MD5 哈希后缀防止冲突。
         """
         def _sanitize(s: str) -> str:
             return s.replace("-", "_").replace("@", "_at_")
 
         name = f"{_sanitize(tenant_id)}__{_sanitize(project_id)}"
         if len(name) > 63:
-            name = name[:63]
+            hash_suffix = hashlib.md5(name.encode()).hexdigest()[:8]
+            name = f"{name[:54]}_{hash_suffix}"
         return name
 
     def _get_collection(self, tenant_id: str, project_id: str):
@@ -106,7 +109,7 @@ class VectorStore:
         if fragment.session_id is not None:
             meta["session_id"] = fragment.session_id
         if fragment.tags:
-            meta["tags"] = ",".join(fragment.tags)
+            meta["tags"] = json.dumps(fragment.tags)
         if fragment.metadata:
             meta["extra_metadata"] = json.dumps(fragment.metadata, ensure_ascii=False)
         return meta
@@ -123,7 +126,7 @@ class VectorStore:
             "memory_type": meta.get("memory_type", ""),
             "role": meta.get("role"),
             "session_id": meta.get("session_id"),
-            "tags": meta.get("tags", "").split(",") if meta.get("tags") else [],
+            "tags": json.loads(meta.get("tags", "[]")) if meta.get("tags") else [],
             "hit_count": meta.get("hit_count", 0),
             "importance": meta.get("importance", 0.0),
             "created_at": meta.get("created_at", ""),
@@ -167,12 +170,9 @@ class VectorStore:
         # 构建 where 过滤：必须包含 user_id
         where = self._build_where(user_id=user_id, memory_type=memory_type, session_id=session_id)
 
-        # 限制 limit 不超过 collection 中的文档数量
-        actual_limit = min(limit, collection.count())
-
         results = collection.query(
             query_texts=[query],
-            n_results=actual_limit,
+            n_results=limit,
             where=where,
             include=["documents", "metadatas", "distances"],
         )
@@ -296,7 +296,7 @@ class VectorStore:
         new_meta["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         if tags is not None:
-            new_meta["tags"] = ",".join(tags) if tags else ""
+            new_meta["tags"] = json.dumps(tags) if tags else "[]"
         if importance is not None:
             new_meta["importance"] = importance
         if metadata is not None:
@@ -333,6 +333,8 @@ class VectorStore:
         collection = self._get_collection(tenant_id, project_id)
 
         # 按 user_id 过滤获取该用户的记忆
+        # 只请求 metadatas：ChromaDB 的 include 参数不支持只获取 ids，
+        # 必须至少包含一种数据类型。metadatas 足以完成统计。
         where = {"user_id": user_id}
         results = collection.get(where=where, include=["metadatas"])
 
@@ -348,13 +350,37 @@ class VectorStore:
     def increment_hit_count(
         self, tenant_id: str, project_id: str, user_id: str, fragment_id: str
     ) -> None:
-        """增加记忆片段的检索命中次数"""
+        """
+        增加记忆片段的检索命中次数
+
+        注意：存在竞态条件 — 并发请求可能导致 hit_count 少计。
+        在单实例部署场景下可接受，如需精确计数请使用外部原子计数器。
+        """
         collection = self._get_collection(tenant_id, project_id)
-        results = collection.get(ids=[fragment_id], include=["metadatas", "documents"])
+        results = collection.get(ids=[fragment_id], include=["metadatas"])
         if results and results["ids"]:
             meta = results["metadatas"][0]
             meta["hit_count"] = meta.get("hit_count", 0) + 1
             collection.update(ids=[fragment_id], metadatas=[meta])
+
+    def batch_increment_hit_count(
+        self, tenant_id: str, project_id: str, fragment_ids: list[str]
+    ) -> None:
+        """
+        批量增加记忆片段的检索命中次数
+
+        使用 1 次批量 get + 1 次批量 update 替代 N 次单独操作。
+        """
+        if not fragment_ids:
+            return
+        collection = self._get_collection(tenant_id, project_id)
+        results = collection.get(ids=fragment_ids, include=["metadatas"])
+        if results and results["ids"]:
+            updated_metas = []
+            for meta in results["metadatas"]:
+                meta["hit_count"] = meta.get("hit_count", 0) + 1
+                updated_metas.append(meta)
+            collection.update(ids=results["ids"], metadatas=updated_metas)
 
     # ----------------------------------------------------------
     # 私有辅助

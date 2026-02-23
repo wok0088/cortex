@@ -66,6 +66,23 @@ class MemoryFragment(BaseModel):
     updated_at: datetime = Field(default_factory=_now, description="更新时间")
     metadata: Optional[dict] = Field(default=None, description="扩展元数据")
 
+    def to_response_dict(self) -> dict:
+        """转换为 MemoryResponse 所需的字典，减少路由层重复转换代码"""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "content": self.content,
+            "memory_type": self.memory_type,
+            "role": self.role,
+            "session_id": self.session_id,
+            "tags": self.tags,
+            "hit_count": self.hit_count,
+            "importance": self.importance,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "metadata": self.metadata,
+        }
+
 
 class Tenant(BaseModel):
     """租户 — 最顶层的组织单位（如企业或个人开发者）"""
@@ -88,8 +105,15 @@ class ApiKey(BaseModel):
     支持两种级别：
     - 项目级 Key（user_id=None）：B 端，调用方必须传 user_id
     - 用户级 Key（user_id 有值）：C 端，user_id 自动绑定，不可覆盖
+
+    安全设计：
+    - key: 完整 Key 值，仅在创建时返回一次，不持久化
+    - key_id: Key 前缀短标识（如 "eng_Ab3x"），用于日志和列表展示
+    - key_hash: Key 的 SHA-256 哈希，用于持久化存储和验证
     """
-    key: str = Field(description="API Key 值")
+    key: str = Field(description="API Key 值（仅创建时返回）")
+    key_id: str = Field(default="", description="Key 前缀短标识，用于列表展示和吊销")
+    key_hash: str = Field(default="", description="Key 的 SHA-256 哈希值")
     tenant_id: str = Field(description="所属租户 ID")
     project_id: str = Field(description="所属项目 ID")
     user_id: Optional[str] = Field(default=None, description="绑定的用户 ID（None 为项目级 Key）")
@@ -103,6 +127,8 @@ class ApiKey(BaseModel):
 
 class AddMemoryRequest(BaseModel):
     """添加记忆请求"""
+    # default="" 而非 None：_resolve_user_id 将空字符串视为"未传入"，
+    # 与 Query(default="") 在 GET 路由中的行为保持一致
     user_id: Optional[str] = Field(default="", description="用户 ID（用户级 Key 可不传）", max_length=100)
     content: str = Field(description="记忆内容", min_length=1, max_length=10000)
     memory_type: MemoryType = Field(description="记忆类型")
@@ -130,7 +156,7 @@ class MemoryResponse(BaseModel):
     memory_type: MemoryType
     role: Optional[Role] = None
     session_id: Optional[str] = None
-    tags: list[str] = []
+    tags: list[str] = Field(default_factory=list)
     hit_count: int = 0
     importance: float = 0.0
     created_at: datetime
@@ -179,12 +205,23 @@ class ProjectResponse(BaseModel):
 
 
 class ApiKeyResponse(BaseModel):
-    """API Key 响应"""
+    """API Key 响应（仅创建时返回完整 Key）"""
     key: str
+    key_id: str
     tenant_id: str
     project_id: str
     user_id: Optional[str] = None
     created_at: datetime
+
+
+class ApiKeyListItem(BaseModel):
+    """API Key 列表项（不含完整 Key 值，用于列出 Key）"""
+    key_id: str
+    tenant_id: str
+    project_id: str
+    user_id: Optional[str] = None
+    created_at: datetime
+    is_active: bool
 
 
 class StatsResponse(BaseModel):

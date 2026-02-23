@@ -28,7 +28,8 @@ Engrama 是一个**轻量级、通用的 AI 记忆中间件**，解决 AI 项目
 
 | 版本 | 状态 | 说明 |
 |---|---|---|
-| **v0.4.0** | ✅ 当前版本 | 生产化加固 + MCP Server (鉴权) |
+| **v0.4.2** | ✅ 当前版本 | Code Review 修复加固 + 全面测试覆盖 |
+| v0.4.0 | 🔖 历史版本 | 生产化加固 + MCP Server (鉴权) |
 | v1.0.0 | 🔮 规划中 | 记忆智能化（摘要、冲突检测、淘汰策略） |
 | v2.0.0 | 🔮 规划中 | 平台化（Web UI、SDK） |
 
@@ -287,7 +288,7 @@ engrama/
 ├── mcp_server/              # MCP Server
 │   ├── server.py            # MCP Tools 定义
 │   └── __main__.py          # 入口
-├── tests/                   # 测试（68 个，涵盖鉴权和隔离边界测试）
+├── tests/                   # 测试（74 个，涵盖鉴权和隔离边界测试）
 ├── Dockerfile               # Docker 镜像构建
 ├── docker-compose.yml       # Docker Compose 编排
 ├── data/                    # 运行时数据（自动生成）
@@ -328,7 +329,7 @@ python -m pytest tests/test_api.py -v      # API 集成
 |---|---|---|
 | `ENGRAMA_DATA_DIR` | `./data` | 数据持久化目录 |
 | `ENGRAMA_ADMIN_TOKEN` | `""` (免认证) | 渠道管理 API 管理员 Token |
-| `ENGRAMA_EMBEDDING_MODEL` | `BAAI/bge-small-zh-v1.5` | Embedding 模型 |
+| `ENGRAMA_EMBEDDING_MODEL` | `BAAI/bge-m3` | Embedding 模型 |
 | `ENGRAMA_CORS_ORIGINS` | `*` | CORS 允许的域名 |
 | `ENGRAMA_RATE_LIMIT` | `0` (不限制) | 每分钟最大请求数 |
 | `ENGRAMA_LOG_LEVEL` | `INFO` | 日志级别 |

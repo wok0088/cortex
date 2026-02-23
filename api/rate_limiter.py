@@ -7,9 +7,9 @@
 适用于单实例部署，多实例部署请使用 Redis 方案（V3+）。
 """
 
+import asyncio
 import time
 from collections import defaultdict
-from threading import Lock
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -32,7 +32,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self._max_rpm = max_requests_per_minute
         self._requests: dict[str, list[float]] = defaultdict(list)
-        self._lock = Lock()
+        self._lock = asyncio.Lock()
 
     async def dispatch(self, request: Request, call_next):
         """检查速率限制"""
@@ -42,17 +42,18 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         # 使用 API Key 或 IP 作为限制标识
         client_id = (
             request.headers.get("X-API-Key")
-            or request.client.host if request.client else "unknown"
+            or (request.client.host if request.client else "unknown")
         )
 
         now = time.time()
         window_start = now - 60.0
 
-        with self._lock:
+        async with self._lock:
             # 清理过期记录
-            self._requests[client_id] = [
-                ts for ts in self._requests[client_id] if ts > window_start
-            ]
+            if client_id in self._requests:
+                self._requests[client_id] = [req for req in self._requests[client_id] if req > window_start]
+                if not self._requests[client_id]:
+                    del self._requests[client_id]
 
             if len(self._requests[client_id]) >= self._max_rpm:
                 logger.warning("速率限制触发: client=%s, requests=%d", client_id[:16], len(self._requests[client_id]))

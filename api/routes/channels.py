@@ -2,12 +2,15 @@
 渠道管理路由
 
 提供租户注册、项目创建和 API Key 管理的 REST API：
-- POST /v1/channels/tenants      — 注册租户
-- GET  /v1/channels/tenants      — 列出租户
-- POST /v1/channels/projects     — 创建项目
-- GET  /v1/channels/projects     — 列出项目
-- DELETE /v1/channels/projects/{id} — 删除项目
-- POST /v1/channels/api-keys     — 生成 API Key
+- POST   /v1/channels/tenants         — 注册租户
+- GET    /v1/channels/tenants         — 列出租户
+- DELETE /v1/channels/tenants/{id}    — 删除租户
+- POST   /v1/channels/projects        — 创建项目
+- GET    /v1/channels/projects        — 列出项目
+- DELETE /v1/channels/projects/{id}   — 删除项目
+- POST   /v1/channels/api-keys        — 生成 API Key
+- GET    /v1/channels/api-keys        — 列出 API Key
+- DELETE /v1/channels/api-keys/{key_id} — 吊销 API Key
 
 注意：渠道管理路由不需要 API Key 认证（因为认证本身就依赖渠道管理）。
 """
@@ -21,6 +24,7 @@ from engrama.models import (
     TenantResponse,
     ProjectResponse,
     ApiKeyResponse,
+    ApiKeyListItem,
 )
 from engrama.channel_manager import ChannelManager
 
@@ -37,7 +41,7 @@ def _get_channel_manager(request: Request) -> ChannelManager:
 # ----------------------------------------------------------
 
 @router.post("/tenants", response_model=TenantResponse, summary="注册租户")
-async def register_tenant(body: RegisterTenantRequest, request: Request):
+def register_tenant(body: RegisterTenantRequest, request: Request):
     """注册一个新租户。"""
     cm = _get_channel_manager(request)
     tenant = cm.register_tenant(body.name)
@@ -57,6 +61,21 @@ def list_tenants(request: Request):
         TenantResponse(id=t.id, name=t.name, created_at=t.created_at)
         for t in tenants
     ]
+
+
+@router.delete("/tenants/{tenant_id}", summary="删除租户")
+def delete_tenant(tenant_id: str, request: Request):
+    """
+    删除指定租户及其所有项目和 API Key。
+
+    注意：不清理 ChromaDB 向量数据，仅通过 API Key 失效让数据"不可访问"，
+    作为误删保护机制。
+    """
+    cm = _get_channel_manager(request)
+    success = cm.delete_tenant(tenant_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="租户不存在")
+    return {"detail": "删除成功", "id": tenant_id}
 
 
 # ----------------------------------------------------------
@@ -96,12 +115,16 @@ def list_projects(
 
 
 @router.delete("/projects/{project_id}", summary="删除项目")
-def delete_project(project_id: str, request: Request):
-    """删除指定项目及其关联的 API Key。"""
+def delete_project(
+    project_id: str,
+    request: Request,
+    tenant_id: str = Query(description="租户 ID（验证项目归属）"),
+):
+    """删除指定项目及其关联的 API Key。需传入 tenant_id 验证归属关系。"""
     cm = _get_channel_manager(request)
-    success = cm.delete_project(project_id)
+    success = cm.delete_project(project_id, tenant_id=tenant_id)
     if not success:
-        raise HTTPException(status_code=404, detail="项目不存在")
+        raise HTTPException(status_code=404, detail="项目不存在或不属于该租户")
     return {"detail": "删除成功", "id": project_id}
 
 
@@ -124,8 +147,40 @@ def generate_api_key(body: GenerateApiKeyRequest, request: Request):
         raise HTTPException(status_code=400, detail=str(e))
     return ApiKeyResponse(
         key=api_key.key,
+        key_id=api_key.key_id,
         tenant_id=api_key.tenant_id,
         project_id=api_key.project_id,
         user_id=api_key.user_id,
         created_at=api_key.created_at,
     )
+
+
+@router.get("/api-keys", response_model=list[ApiKeyListItem], summary="列出 API Key")
+def list_api_keys(
+    request: Request,
+    project_id: str = Query(description="项目 ID"),
+):
+    """列出指定项目下的所有 API Key（不暴露完整 Key 值）。"""
+    cm = _get_channel_manager(request)
+    keys = cm.list_api_keys(project_id)
+    return [
+        ApiKeyListItem(
+            key_id=k["key_id"],
+            tenant_id=k["tenant_id"],
+            project_id=k["project_id"],
+            user_id=k["user_id"],
+            created_at=k["created_at"],
+            is_active=k["is_active"],
+        )
+        for k in keys
+    ]
+
+
+@router.delete("/api-keys/{key_id}", summary="吊销 API Key")
+def revoke_api_key(key_id: str, request: Request):
+    """按 key_id 吊销指定的 API Key。"""
+    cm = _get_channel_manager(request)
+    success = cm.revoke_api_key(key_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="API Key 不存在或已吊销")
+    return {"detail": "吊销成功", "key_id": key_id}
