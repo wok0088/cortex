@@ -10,9 +10,9 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from cortex import config
-from cortex.logger import get_logger
-from cortex.store.meta_store import MetaStore
+from engrama import config
+from engrama.logger import get_logger
+from engrama.store.meta_store import MetaStore
 
 logger = get_logger(__name__)
 

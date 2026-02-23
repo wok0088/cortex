@@ -12,9 +12,9 @@ import tempfile
 
 import pytest
 
-from cortex.store.meta_store import MetaStore
-from cortex.store.vector_store import VectorStore
-from cortex.memory_manager import MemoryManager
+from engrama.store.meta_store import MetaStore
+from engrama.store.vector_store import VectorStore
+from engrama.memory_manager import MemoryManager
 
 
 @pytest.fixture
@@ -88,7 +88,7 @@ class TestMCPAuth:
         from mcp_server.server import verify_and_bind
 
         with pytest.raises(SystemExit):
-            verify_and_bind("ctx_invalid_key_12345", services["meta_store"])
+            verify_and_bind("eng_invalid_key_12345", services["meta_store"])
 
 
 class TestMCPToolsServiceKey:

@@ -6,9 +6,9 @@
 
 from typing import Optional
 
-from cortex.logger import get_logger
-from cortex.models import ApiKey, Project, Tenant
-from cortex.store.meta_store import MetaStore
+from engrama.logger import get_logger
+from engrama.models import ApiKey, Project, Tenant
+from engrama.store.meta_store import MetaStore
 
 logger = get_logger(__name__)
 

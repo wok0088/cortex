@@ -10,8 +10,8 @@ import tempfile
 
 import pytest
 
-from cortex.store.meta_store import MetaStore
-from cortex.channel_manager import ChannelManager
+from engrama.store.meta_store import MetaStore
+from engrama.channel_manager import ChannelManager
 
 
 @pytest.fixture
@@ -84,7 +84,7 @@ class TestChannelManager:
 
         # 生成
         api_key = cm.generate_api_key(tenant.id, project.id)
-        assert api_key.key.startswith("ctx_")
+        assert api_key.key.startswith("eng_")
         assert api_key.tenant_id == tenant.id
         assert api_key.project_id == project.id
 

@@ -21,9 +21,9 @@ import chromadb
 from chromadb.config import Settings
 from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
-from cortex import config
-from cortex.logger import get_logger
-from cortex.models import MemoryFragment, MemoryType
+from engrama import config
+from engrama.logger import get_logger
+from engrama.models import MemoryFragment, MemoryType
 
 logger = get_logger(__name__)
 

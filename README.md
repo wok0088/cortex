@@ -81,17 +81,17 @@ curl -X POST http://localhost:8000/v1/channels/projects \
 curl -X POST http://localhost:8000/v1/channels/api-keys \
   -H "Content-Type: application/json" \
   -d '{"tenant_id": "TENANT_ID", "project_id": "PROJECT_ID"}'
-# 返回: {"key": "ctx_xxxx", ...}
+# 返回: {"key": "eng_xxxx", ...}
 
 # 4️⃣ 存入记忆（项目级 Key需传 user_id，用户级 Key可省略）
 curl -X POST http://localhost:8000/v1/memories \
-  -H "X-API-Key: ctx_xxxx" \
+  -H "X-API-Key: eng_xxxx" \
   -H "Content-Type: application/json" \
   -d '{"user_id": "user_001", "content": "喜欢安静的环境", "memory_type": "preference"}'
 
 # 5️⃣ 语义搜索
 curl -X POST http://localhost:8000/v1/memories/search \
-  -H "X-API-Key: ctx_xxxx" \
+  -H "X-API-Key: eng_xxxx" \
   -H "Content-Type: application/json" \
   -d '{"user_id": "user_001", "query": "用户的偏好是什么"}'
 ```
@@ -149,7 +149,7 @@ Tenant（租户：企业 / 个人开发者）
 记忆管理 API 需要在请求头中携带 API Key：
 
 ```
-X-API-Key: ctx_xxxxxxxxxxxx
+X-API-Key: eng_xxxxxxxxxxxx
 ```
 
 API Key 会自动关联到对应的 Tenant 和 Project，无需在每次请求中重复指定。
@@ -194,16 +194,16 @@ MCP Server 启动时必须提供 API Key（与 HTTP API 使用同一套 Key）�
 
 ```bash
 # stdio 模式（客户端 C 端集成，利用用户级 API Key 自动绑定 user_id）
-ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server
+ENGRAMA_API_KEY=eng_xxxx python -m mcp_server
 
 # stdio 模式（B端平台调用，携带项目级 Key 通过环境变量指认默认用户）
-ENGRAMA_API_KEY=ctx_xxxx ENGRAMA_USER_ID=user_001 python -m mcp_server
+ENGRAMA_API_KEY=eng_xxxx ENGRAMA_USER_ID=user_001 python -m mcp_server
 
 # 或者通过 CLI 参数
-python -m mcp_server --api-key ctx_xxxx
+python -m mcp_server --api-key eng_xxxx
 
 # SSE 模式（HTTP 远程访问）
-ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server --transport sse --port 8001
+ENGRAMA_API_KEY=eng_xxxx python -m mcp_server --transport sse --port 8001
 ```
 
 ### 配置 Claude Desktop
@@ -218,7 +218,7 @@ ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server --transport sse --port 8001
       "args": ["-m", "mcp_server"],
       "cwd": "/path/to/engrama",
       "env": {
-        "ENGRAMA_API_KEY": "ctx_xxxx"
+        "ENGRAMA_API_KEY": "eng_xxxx"
       }
     }
   }
@@ -237,7 +237,7 @@ ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server --transport sse --port 8001
       "args": ["-m", "mcp_server"],
       "cwd": "/path/to/engrama",
       "env": {
-        "ENGRAMA_API_KEY": "ctx_xxxx"
+        "ENGRAMA_API_KEY": "eng_xxxx"
       }
     }
   }
@@ -266,8 +266,8 @@ ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server --transport sse --port 8001
 ### 项目结构
 
 ```
-cortex/
-├── cortex/                  # 核心包
+engrama/
+├── engrama/                  # 核心包
 │   ├── config.py            # 配置管理
 │   ├── models.py            # 数据模型（Pydantic v2）
 │   ├── logger.py            # 统一日志

@@ -7,10 +7,10 @@
 
 from typing import Optional
 
-from cortex.logger import get_logger
-from cortex.models import MemoryFragment, MemoryType, Role
-from cortex.store.vector_store import VectorStore
-from cortex.store.meta_store import MetaStore
+from engrama.logger import get_logger
+from engrama.models import MemoryFragment, MemoryType, Role
+from engrama.store.vector_store import VectorStore
+from engrama.store.meta_store import MetaStore
 
 logger = get_logger(__name__)
 
@@ -21,7 +21,7 @@ class MemoryManager:
 
     使用示例：
     ```python
-    from cortex.memory_manager import MemoryManager
+    from engrama.memory_manager import MemoryManager
 
     manager = MemoryManager()
 

@@ -10,9 +10,9 @@ import tempfile
 
 import pytest
 
-from cortex.models import MemoryFragment, MemoryType, Role
-from cortex.store.vector_store import VectorStore
-from cortex.store.meta_store import MetaStore
+from engrama.models import MemoryFragment, MemoryType, Role
+from engrama.store.vector_store import VectorStore
+from engrama.store.meta_store import MetaStore
 
 
 # ============================================================
@@ -236,7 +236,7 @@ class TestMetaStore:
 
         # 生成
         api_key = meta_store.generate_api_key(tenant.id, project.id)
-        assert api_key.key.startswith("ctx_")
+        assert api_key.key.startswith("eng_")
 
         # 验证
         verified = meta_store.verify_api_key(api_key.key)

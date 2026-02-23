@@ -16,16 +16,16 @@ AI 模型（如 Claude、Cursor 等）可以通过 MCP 协议直接调用 Engram
 
 使用方式：
     # stdio 模式（Claude Desktop / Cursor 等 MCP 客户端）
-    ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server
+    ENGRAMA_API_KEY=eng_xxxx python -m mcp_server
 
     # 用户级 Key + 默认用户
-    ENGRAMA_API_KEY=ctx_xxxx ENGRAMA_USER_ID=nil python -m mcp_server
+    ENGRAMA_API_KEY=eng_xxxx ENGRAMA_USER_ID=nil python -m mcp_server
 
     # 或者通过 CLI 参数
-    python -m mcp_server --api-key ctx_xxxx
+    python -m mcp_server --api-key eng_xxxx
 
     # SSE 模式（HTTP 远程访问）
-    ENGRAMA_API_KEY=ctx_xxxx python -m mcp_server --transport sse --port 8001
+    ENGRAMA_API_KEY=eng_xxxx python -m mcp_server --transport sse --port 8001
 """
 
 import argparse
@@ -37,11 +37,11 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from cortex.logger import get_logger
-from cortex.models import MemoryType, Role
-from cortex.store.vector_store import VectorStore
-from cortex.store.meta_store import MetaStore
-from cortex.memory_manager import MemoryManager
+from engrama.logger import get_logger
+from engrama.models import MemoryType, Role
+from engrama.store.vector_store import VectorStore
+from engrama.store.meta_store import MetaStore
+from engrama.memory_manager import MemoryManager
 
 logger = get_logger(__name__)
 

@@ -14,7 +14,7 @@
 
 from fastapi import APIRouter, Request, Query, HTTPException
 
-from cortex.models import (
+from engrama.models import (
     RegisterTenantRequest,
     CreateProjectRequest,
     GenerateApiKeyRequest,
@@ -22,7 +22,7 @@ from cortex.models import (
     ProjectResponse,
     ApiKeyResponse,
 )
-from cortex.channel_manager import ChannelManager
+from engrama.channel_manager import ChannelManager
 
 router = APIRouter(prefix="/v1/channels", tags=["渠道管理"])
 

@@ -12,9 +12,9 @@ import threading
 from datetime import datetime, timezone
 from typing import Optional
 
-from cortex import config
-from cortex.logger import get_logger
-from cortex.models import ApiKey, Project, Tenant
+from engrama import config
+from engrama.logger import get_logger
+from engrama.models import ApiKey, Project, Tenant
 
 logger = get_logger(__name__)
 
@@ -218,7 +218,7 @@ class MetaStore:
         if self.get_project(project_id) is None:
             raise ValueError(f"项目不存在: {project_id}")
 
-        key_value = f"ctx_{secrets.token_urlsafe(32)}"
+        key_value = f"eng_{secrets.token_urlsafe(32)}"
         api_key = ApiKey(key=key_value, tenant_id=tenant_id, project_id=project_id, user_id=user_id)
 
         conn = self._get_conn()

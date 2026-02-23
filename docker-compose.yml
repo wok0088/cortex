@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - cortex_data:/app/data
+      - engrama_data:/app/data
     environment:
       # ⚠️ 生产环境必须设置管理员 Token
       - CORTEX_ADMIN_TOKEN=${CORTEX_ADMIN_TOKEN:-}
@@ -18,4 +18,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  cortex_data:
+  engrama_data:

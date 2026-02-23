@@ -15,7 +15,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Request, Query, HTTPException
 
-from cortex.models import (
+from engrama.models import (
     AddMemoryRequest,
     UpdateMemoryRequest,
     SearchMemoryRequest,
@@ -25,7 +25,7 @@ from cortex.models import (
     HistoryResponse,
     StatsResponse,
 )
-from cortex.memory_manager import MemoryManager
+from engrama.memory_manager import MemoryManager
 
 router = APIRouter(prefix="/v1", tags=["记忆管理"])
 

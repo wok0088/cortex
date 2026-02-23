@@ -12,10 +12,10 @@ import tempfile
 import pytest
 from fastapi.testclient import TestClient
 
-from cortex.store.vector_store import VectorStore
-from cortex.store.meta_store import MetaStore
-from cortex.memory_manager import MemoryManager
-from cortex.channel_manager import ChannelManager
+from engrama.store.vector_store import VectorStore
+from engrama.store.meta_store import MetaStore
+from engrama.memory_manager import MemoryManager
+from engrama.channel_manager import ChannelManager
 
 
 @pytest.fixture
@@ -33,8 +33,8 @@ def client(tmp_dir):
 
     # 重新导入以使用新配置
     from api.main import create_app
-    from cortex.store.vector_store import VectorStore
-    from cortex.store.meta_store import MetaStore
+    from engrama.store.vector_store import VectorStore
+    from engrama.store.meta_store import MetaStore
 
     app = create_app()
 
@@ -116,7 +116,7 @@ class TestAPI:
     def test_generate_api_key(self, client):
         """生成 API Key"""
         _, _, api_key = self._setup_channel(client)
-        assert api_key.startswith("ctx_")
+        assert api_key.startswith("eng_")
 
     def test_list_tenants(self, client):
         """列出租户"""

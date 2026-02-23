@@ -11,12 +11,12 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
-from cortex import config
-from cortex.logger import get_logger
-from cortex.store.vector_store import VectorStore
-from cortex.store.meta_store import MetaStore
-from cortex.memory_manager import MemoryManager
-from cortex.channel_manager import ChannelManager
+from engrama import config
+from engrama.logger import get_logger
+from engrama.store.vector_store import VectorStore
+from engrama.store.meta_store import MetaStore
+from engrama.memory_manager import MemoryManager
+from engrama.channel_manager import ChannelManager
 from api.middleware import ApiKeyAuthMiddleware
 from api.rate_limiter import RateLimiterMiddleware
 from api.routes import memories, channels

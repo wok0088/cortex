@@ -20,7 +20,7 @@ def get_logger(name: str) -> logging.Logger:
     Returns:
         配置好的 Logger 实例
     """
-    logger = logging.getLogger(f"cortex.{name}")
+    logger = logging.getLogger(f"engrama.{name}")
 
     # 避免重复添加 handler
     if not logger.handlers:

@@ -10,7 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-zh-v1.5')"
 
 # 复制源码
-COPY cortex/ cortex/
+COPY engrama/ engrama/
 COPY api/ api/
 
 # 创建数据目录

@@ -10,10 +10,10 @@ import tempfile
 
 import pytest
 
-from cortex.models import MemoryType, Role
-from cortex.store.vector_store import VectorStore
-from cortex.store.meta_store import MetaStore
-from cortex.memory_manager import MemoryManager
+from engrama.models import MemoryType, Role
+from engrama.store.vector_store import VectorStore
+from engrama.store.meta_store import MetaStore
+from engrama.memory_manager import MemoryManager
 
 
 @pytest.fixture
