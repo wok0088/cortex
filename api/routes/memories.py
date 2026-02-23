@@ -257,9 +257,30 @@ def get_session_history(
 # ----------------------------------------------------------
 
 @router.get(
+    "/users/me/stats",
+    response_model=StatsResponse,
+    summary="获取当前(绑定)用户的统计信息",
+)
+def get_my_stats(request: Request):
+    """获取当前绑定用户（需用户级 Key）的记忆统计信息。"""
+    manager = _get_manager(request)
+    resolved_user_id = _resolve_user_id(request, "")
+    stats = manager.get_stats(
+        tenant_id=request.state.tenant_id,
+        project_id=request.state.project_id,
+        user_id=resolved_user_id,
+    )
+    return StatsResponse(
+        user_id=resolved_user_id,
+        total_memories=stats["total"],
+        by_type=stats["by_type"],
+    )
+
+
+@router.get(
     "/users/{user_id}/stats",
     response_model=StatsResponse,
-    summary="获取统计信息",
+    summary="获取特定用户的统计信息",
 )
 def get_user_stats(user_id: str, request: Request):
     """获取指定用户的记忆统计信息。"""
