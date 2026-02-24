@@ -258,6 +258,7 @@ flowchart TD
     %% 样式定义
     classDef layer fill:#f8f9fa,stroke:#dee2e6,stroke-width:2px,color:#495057,rx:10px,ry:10px;
     classDef component fill:#ffffff,stroke:#adb5bd,stroke-width:1px,color:#212529,rx:6px,ry:6px;
+    classDef optional fill:#fdf1e6,stroke:#f5a623,stroke-width:1px,color:#212529,rx:6px,ry:6px,stroke-dasharray: 5 5;
     
     subgraph AccessLayer ["🌐 接入层 (Access Layer)"]
         direction LR
@@ -268,8 +269,14 @@ flowchart TD
 
     subgraph BusinessLayer ["⚙️ 业务层 (Business Layer)"]
         Manager["MemoryManager · ChannelManager"]:::component
+        Redis["Redis (Optional)<br/>分布式限流"]:::optional
     end
     BusinessLayer:::layer
+
+    subgraph ConfigLayer ["🧠 推理层 (Inference Layer)"]
+        TEI["TEI Engine (Rust)<br/>bge-m3 文本向量化"]:::component
+    end
+    ConfigLayer:::layer
 
     subgraph StorageLayer ["💾 存储层 (Storage Layer)"]
         direction LR
@@ -279,7 +286,10 @@ flowchart TD
     StorageLayer:::layer
 
     API --> Manager
+    API -.-> Redis
     MCP --> Manager
+    Manager --> TEI
+    TEI --> Qdrant
     Manager --> Qdrant
     Manager --> Postgres
 ```
