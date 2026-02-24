@@ -28,8 +28,8 @@ Engrama 是一个**轻量级、通用的 AI 记忆中间件**，解决 AI 项目
 
 | 版本 | 状态 | 说明 |
 |---|---|---|
-| **v0.4.3** | ✅ 当前版本 | 外键约束生效 + 速率限制修复 + 测试基础设施优化 |
-| v0.4.2 | 🔖 历史版本 | Code Review 修复加固 + 全面测试覆盖 |
+| **v0.4.4** | ✅ 当前版本 | 移除 numpy/transformers 降级限制 + 修复 Python 3.12 Date DeprecationWarning |
+| v0.4.3 | 🔖 历史版本 | 外键约束生效 + 速率限制修复 + 测试基础设施优化 |
 | v0.4.0 | 🔖 历史版本 | 生产化加固 + MCP Server (鉴权) |
 | v1.0.0 | 🔮 规划中 | 记忆智能化（摘要、冲突检测、淘汰策略） |
 | v2.0.0 | 🔮 规划中 | 平台化（Web UI、SDK） |
@@ -332,7 +332,8 @@ python -m pytest tests/test_api.py -v      # API 集成
 | `ENGRAMA_ADMIN_TOKEN` | `""` (免认证) | 渠道管理 API 管理员 Token |
 | `ENGRAMA_EMBEDDING_MODEL` | `BAAI/bge-m3` | Embedding 模型 |
 | `ENGRAMA_CORS_ORIGINS` | `*` | CORS 允许的域名 |
-| `ENGRAMA_RATE_LIMIT` | `0` (不限制) | 每分钟最大请求数 |
+| `ENGRAMA_RATE_LIMIT` | `0` (不限制) | 每分钟最大请求数（Redis 优先，无 Redis 时降级为内存限流） |
+| `ENGRAMA_REDIS_URL` | `""` (不使用) | Redis 连接地址（用于分布式限流，如 `redis://localhost:6379`） |
 | `ENGRAMA_LOG_LEVEL` | `INFO` | 日志级别 |
 
 ## 🐳 Docker 部署

@@ -2,6 +2,14 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/) 版本规范。
 
+## [0.4.4] - 2026-02-24
+
+### 📦 依赖修复
+- **移除 Numpy/Transformers 降级限制** — 解决了由包体冲突导致的冗余降级限制，更新为 `transformers>=4.41.0` 与 `numpy>=1.26.0`。
+
+### 🐛 缺陷修复
+- **Python 3.12 警告清理** — `meta_store.py` 修复了 SQLite 原生驱动对 `datetime` 直接插入时报出的 `DeprecationWarning`，将字段存储转为显式的 `.isoformat()` 字符串序列化，令全量测试清爽通过。
+
 ## [0.4.3] - 2026-02-23
 
 ### 🐛 缺陷修复
