@@ -56,6 +56,9 @@ source .venv/bin/activate
 
 # 安装依赖
 pip install -r requirements.txt
+
+# 配置环境变量（复制并编辑配置）
+cp .env.example .env
 ```
 
 ### 启动服务

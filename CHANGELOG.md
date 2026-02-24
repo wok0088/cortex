@@ -8,6 +8,8 @@
 - **独立的 Embedding 推理引擎** — 将模型从主进程内嵌的 `SentenceTransformer` 迁移至外部的文本嵌入推理引擎 (TEI)，使用高性能 Rust 编写。根除 Mac MPS 和多进程下加载模型造成的内存泄漏或 OutOfMemory 奔溃。
 - **存储后端升级** — 将原本基于文件系统的 SQLite 与 ChromaDB 升级为正式的 PostgreSQL 与 Qdrant 组合。新增 `PostgresMetaStore` 和 `QdrantStore` 控制类，提升稳定性、性能和可扩展性。
 - **多容器编排** — 提供开箱即用的 Docker Compose 堆栈，支持一键部署 Postgres, Qdrant 和分离的 TEI 服务引擎。
+- **环境安全配置升级** — 引入 `python-dotenv`。全面清理代码中的硬编码密码，迁移至 `.env` 文件。支持基于 `.env.example` 快速启动，`.gitignore` 拦截机制确保生产密钥安全。
+- **测试防误删机制 (Failsafe)** — 集成测试包含清表操作。在测试引导配置入口添加严格的环境和数据库名字母校验锁，防止误操作引发生产库数据销毁 (`DROP/TRUNCATE`) 漏洞。
 
 ## [0.4.4] - 2026-02-24
 
