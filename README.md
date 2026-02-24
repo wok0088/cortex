@@ -253,21 +253,35 @@ ENGRAMA_API_KEY=eng_xxxx python -m mcp_server --transport sse --port 8001
 
 ## 🏗️ 架构设计
 
-```
-┌─────────────────────────────────────────────────────┐
-│  接入层                                              │
-│  ┌─────────────────────┐ ┌─────────────────────────┐│
-│  │ REST API (FastAPI)  │ │ MCP Server (FastMCP)    ││
-│  │ HTTP · 认证中间件   │ │ stdio · SSE             ││
-│  └─────────┬───────────┘ └────────────┬────────────┘│
-├────────────┴──────────────────────────┴─────────────┤
-│              业务层                                   │
-│    MemoryManager · ChannelManager                    │
-├──────────────────┬──────────────────────────────────┤
-│  QdrantStore     │     PostgresMetaStore             │
-│  (Qdrant)        │     (PostgreSQL)                  │
-│  语义搜索        │     租户/项目/Key 管理             │
-└──────────────────┴──────────────────────────────────┘
+```mermaid
+flowchart TD
+    %% 样式定义
+    classDef layer fill:#f8f9fa,stroke:#dee2e6,stroke-width:2px,color:#495057,rx:10px,ry:10px;
+    classDef component fill:#ffffff,stroke:#adb5bd,stroke-width:1px,color:#212529,rx:6px,ry:6px;
+    
+    subgraph AccessLayer ["🌐 接入层 (Access Layer)"]
+        direction LR
+        API["REST API (FastAPI)<br/>HTTP · 认证中间件"]:::component
+        MCP["MCP Server (FastMCP)<br/>stdio · SSE"]:::component
+    end
+    AccessLayer:::layer
+
+    subgraph BusinessLayer ["⚙️ 业务层 (Business Layer)"]
+        Manager["MemoryManager · ChannelManager"]:::component
+    end
+    BusinessLayer:::layer
+
+    subgraph StorageLayer ["💾 存储层 (Storage Layer)"]
+        direction LR
+        Qdrant["QdrantStore (Qdrant)<br/>语义检索"]:::component
+        Postgres["PostgresMetaStore (PostgreSQL)<br/>租户/项目/Key 管理"]:::component
+    end
+    StorageLayer:::layer
+
+    API --> Manager
+    MCP --> Manager
+    Manager --> Qdrant
+    Manager --> Postgres
 ```
 
 ### 项目结构
