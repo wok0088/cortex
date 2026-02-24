@@ -264,8 +264,8 @@ ENGRAMA_API_KEY=eng_xxxx python -m mcp_server --transport sse --port 8001
 │              业务层                                   │
 │    MemoryManager · ChannelManager                    │
 ├──────────────────┬──────────────────────────────────┤
-│  VectorStore     │     MetaStore                     │
-│  (ChromaDB)      │     (SQLite)                      │
+│  QdrantStore     │     PostgresMetaStore             │
+│  (Qdrant)        │     (PostgreSQL)                  │
 │  语义搜索        │     租户/项目/Key 管理             │
 └──────────────────┴──────────────────────────────────┘
 ```
@@ -281,8 +281,8 @@ engrama/
 │   ├── memory_manager.py    # 记忆管理核心 API
 │   ├── channel_manager.py   # 渠道管理
 │   └── store/
-│       ├── vector_store.py  # ChromaDB 向量存储
-│       └── meta_store.py    # SQLite 元数据存储
+│       ├── qdrant_store.py  # Qdrant 向量存储
+│       └── postgres_store.py# PostgreSQL 关系型数据存储
 ├── api/                     # REST API 层
 │   ├── main.py              # FastAPI 入口
 │   ├── middleware.py        # API Key + Admin Token 认证
@@ -307,37 +307,40 @@ engrama/
 | 语言 | Python 3.11+ | 核心语言 |
 | Web 框架 | FastAPI | 高性能 API |
 | MCP | mcp (FastMCP) | AI 模型直接调用 |
-| 向量数据库 | ChromaDB | 语义搜索引擎 |
-| Embedding | BAAI/bge-m3 | 本地多语言语义模型 |
-| 元数据存储 | SQLite | 轻量级关系型存储 |
+| 向量数据库 | Qdrant | 独立的语义搜索引擎容器 |
+| Embedding | Text Embeddings Inference (TEI) | 单独的高性能 Rust 推理引擎部署 |
+| 关系型存储 | PostgreSQL | 高并发稳定的事务元数据库 |
 | 数据验证 | Pydantic v2 | 类型安全的数据模型 |
 | 测试 | pytest | 单元测试 + 集成测试 |
 
-## 🧪 测试
+## 🧪 测试 (防误删机制)
+
+为防止意外清除生产环境数据库（`drop`或`truncate`），我们加入了**终极安全锁**：本地运行集成测试必须且只能携带 `ENGRAMA_ENV=test` 前缀，否则测试套件会执行安全熔断。
 
 ```bash
-# 运行全部测试
-python -m pytest tests/ -v
+# 运行全部测试 (带数据隔离熔断声明)
+ENGRAMA_ENV=test python -m pytest tests/ -v
 
 # 运行特定层的测试
-python -m pytest tests/test_store.py -v    # 存储层
-python -m pytest tests/test_memory.py -v   # 业务层
-python -m pytest tests/test_channel.py -v  # 渠道管理
-python -m pytest tests/test_api.py -v      # API 集成
+ENGRAMA_ENV=test python -m pytest tests/test_store.py -v    # 存储层
+ENGRAMA_ENV=test python -m pytest tests/test_memory.py -v   # 业务层
+ENGRAMA_ENV=test python -m pytest tests/test_api.py -v      # API 集成
 ```
 
 ## ⚙️ 配置
 
-通过环境变量自定义配置：
+所有配置现在统一由仓库根目录的 **`.env`** 文件接管（基于 `python-dotenv`）。初次安装时请通过拷贝 `cp .env.example .env` 完成初始化配置。
+
+常用参数字典：
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `ENGRAMA_DATA_DIR` | `./data` | 数据持久化目录 |
-| `ENGRAMA_ADMIN_TOKEN` | `""` (免认证) | 渠道管理 API 管理员 Token |
-| `ENGRAMA_EMBEDDING_MODEL` | `BAAI/bge-m3` | Embedding 模型 |
+| `ENGRAMA_ADMIN_TOKEN` | 必填 | 渠道管理 API 管理员 Token |
+| `ENGRAMA_PG_URI` | 必填 | PostgreSQL 连接 URI |
+| `ENGRAMA_QDRANT_HOST` | `localhost` | Qdrant Host |
+| `ENGRAMA_EMBEDDING_API_URL`| 必填 | BGE-m3 TEI 服务的 HTTP 推理链接 |
+| `ENGRAMA_RATE_LIMIT` | `0` (不限制) | 每分钟最大请求数 |
 | `ENGRAMA_CORS_ORIGINS` | `*` | CORS 允许的域名 |
-| `ENGRAMA_RATE_LIMIT` | `0` (不限制) | 每分钟最大请求数（Redis 优先，无 Redis 时降级为内存限流） |
-| `ENGRAMA_REDIS_URL` | `""` (不使用) | Redis 连接地址（用于分布式限流，如 `redis://localhost:6379`） |
 | `ENGRAMA_LOG_LEVEL` | `INFO` | 日志级别 |
 
 ## 🐳 Docker 部署
