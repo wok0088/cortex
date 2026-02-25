@@ -22,7 +22,7 @@ from engrama.store.base_meta_store import BaseMetaStore
 logger = get_logger(__name__)
 
 # 全局共享 Collection 名称
-COLLECTION_NAME = "engrama_memories"
+COLLECTION_NAME = getattr(config, "QDRANT_COLLECTION", "engrama_memories")
 
 class QdrantStore:
     """

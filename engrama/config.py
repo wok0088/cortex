@@ -24,6 +24,7 @@ DATA_DIR = Path(os.getenv("ENGRAMA_DATA_DIR", str(_PROJECT_ROOT / "data")))
 QDRANT_HOST = os.getenv("ENGRAMA_QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.getenv("ENGRAMA_QDRANT_PORT", "6333"))
 QDRANT_API_KEY = os.getenv("ENGRAMA_QDRANT_API_KEY", "")
+QDRANT_COLLECTION = os.getenv("ENGRAMA_QDRANT_COLLECTION", "engrama_memories")
 
 # 数据库类型 (强制使用 postgres)
 DB_TYPE = os.getenv("ENGRAMA_DB_TYPE", "postgres")
