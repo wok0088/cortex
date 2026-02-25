@@ -5,46 +5,36 @@
 """
 
 import os
-import shutil
-import tempfile
 
 import pytest
 
 from engrama.models import MemoryFragment, MemoryType, Role
-from engrama.store.vector_store import VectorStore
-from engrama.store.meta_store import MetaStore
+from engrama.store.qdrant_store import QdrantStore
+from engrama.store.base_meta_store import BaseMetaStore
+from engrama.store import create_meta_store
 
 
 # ============================================================
 # Fixtures
 # ============================================================
 
-@pytest.fixture
-def tmp_dir():
-    """创建临时目录，测试后自动清理"""
-    d = tempfile.mkdtemp()
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
-
-
-@pytest.fixture
-def vector_store(tmp_dir):
-    """创建 VectorStore 实例"""
-    return VectorStore(persist_directory=os.path.join(tmp_dir, "chroma"))
-
-
-@pytest.fixture
-def meta_store(tmp_dir):
+@pytest.fixture(scope="module")
+def meta_store():
     """创建 MetaStore 实例"""
-    return MetaStore(db_path=os.path.join(tmp_dir, "meta.db"))
+    return create_meta_store()
+
+
+@pytest.fixture(scope="module")
+def vector_store(meta_store):
+    return QdrantStore(meta_store=meta_store)
 
 
 # ============================================================
-# VectorStore 测试
+# QdrantStore 测试
 # ============================================================
 
-class TestVectorStore:
-    """VectorStore 测试用例"""
+class TestQdrantStore:
+    """QdrantStore 测试用例"""
 
     def test_add_and_list(self, vector_store):
         """添加记忆后能成功列出"""
@@ -204,14 +194,6 @@ class TestVectorStore:
         assert hit_counts[f1.id] == 1
         assert hit_counts[f2.id] == 1
 
-    def test_collection_name_truncation(self, vector_store):
-        """超长 collection 名称截断并附加哈希后缀"""
-        long_tenant = "a" * 40
-        long_project = "b" * 40
-        name = VectorStore._collection_name(long_tenant, long_project)
-        assert len(name) <= 63
-        # 应该有哈希后缀
-        assert "_" in name[50:]
 
 
 # ============================================================
@@ -335,3 +317,91 @@ class TestMetaStore:
     def test_delete_tenant_nonexistent(self, meta_store):
         """删除不存在的租户返回 False"""
         assert not meta_store.delete_tenant("nonexistent")
+
+
+# ============================================================
+# P2 新增测试
+# ============================================================
+
+class TestUpdateWhitelist:
+    """update_memory_fragment 列名白名单测试"""
+
+    def test_whitelist_rejects_invalid_column(self, meta_store):
+        """传入非法列名应抛出 ValueError"""
+        from engrama.models import MemoryFragment, MemoryType
+        fragment = MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="测试", memory_type=MemoryType.FACTUAL,
+        )
+        meta_store.add_memory_fragment(fragment)
+
+        with pytest.raises(ValueError, match="不允许更新字段"):
+            meta_store.update_memory_fragment(fragment.id, {"id": "hacked"})
+
+    def test_whitelist_allows_valid_columns(self, meta_store):
+        """合法列名应正常更新"""
+        from engrama.models import MemoryFragment, MemoryType
+        fragment = MemoryFragment(
+            tenant_id="t1", project_id="p1", user_id="u1",
+            content="原始内容", memory_type=MemoryType.FACTUAL,
+        )
+        meta_store.add_memory_fragment(fragment)
+
+        result = meta_store.update_memory_fragment(
+            fragment.id, {"content": "新内容", "tags": ["tag1"]}
+        )
+        assert result is True
+
+        updated = meta_store.get_memory_fragment(fragment.id)
+        assert updated["content"] == "新内容"
+        assert updated["tags"] == ["tag1"]
+
+
+class TestUserIsolation:
+    """跨用户数据隔离深度测试"""
+
+    def test_update_cross_user_fails(self, vector_store, meta_store):
+        """用户 A 不能通过 update 修改用户 B 的记忆"""
+        from engrama.models import MemoryFragment, MemoryType
+        from engrama.memory_manager import MemoryManager
+
+        mm = MemoryManager(vector_store=vector_store, meta_store=meta_store)
+
+        frag_b = mm.add(
+            tenant_id="t1", project_id="p1", user_id="bob",
+            content="Bob 的秘密", memory_type=MemoryType.FACTUAL,
+        )
+
+        # 用 alice 的身份尝试更新 bob 的记忆
+        result = mm.update(
+            tenant_id="t1", project_id="p1", user_id="alice",
+            fragment_id=frag_b.id, content="被篡改",
+        )
+        assert result is None  # 应返回 None（未找到/无权）
+
+        # 验证 bob 的记忆未被修改
+        original = meta_store.get_memory_fragment(frag_b.id)
+        assert original["content"] == "Bob 的秘密"
+
+    def test_delete_cross_user_fails(self, vector_store, meta_store):
+        """用户 A 不能删除用户 B 的记忆"""
+        from engrama.models import MemoryFragment, MemoryType
+        from engrama.memory_manager import MemoryManager
+
+        mm = MemoryManager(vector_store=vector_store, meta_store=meta_store)
+
+        frag_b = mm.add(
+            tenant_id="t1", project_id="p1", user_id="bob",
+            content="Bob 的数据", memory_type=MemoryType.FACTUAL,
+        )
+
+        # 用 alice 的身份尝试删除 bob 的记忆
+        result = mm.delete(
+            tenant_id="t1", project_id="p1", user_id="alice",
+            fragment_id=frag_b.id,
+        )
+        assert result is False
+
+        # 验证 bob 的记忆仍存在
+        original = meta_store.get_memory_fragment(frag_b.id)
+        assert original is not None

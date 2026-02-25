@@ -39,8 +39,9 @@ from mcp.server.fastmcp import FastMCP
 
 from engrama.logger import get_logger
 from engrama.models import MemoryType, Role
-from engrama.store.vector_store import VectorStore
-from engrama.store.meta_store import MetaStore
+from engrama.store.qdrant_store import QdrantStore
+from engrama.store.base_meta_store import BaseMetaStore
+from engrama.store import create_meta_store
 from engrama.memory_manager import MemoryManager
 
 logger = get_logger(__name__)
@@ -107,7 +108,7 @@ def _resolve_user_id(passed_user_id: str = "") -> str:
     )
 
 
-def verify_and_bind(api_key: str, meta_store: MetaStore) -> AuthContext:
+def verify_and_bind(api_key: str, meta_store: BaseMetaStore) -> AuthContext:
     """
     验证 API Key 并绑定身份上下文
 
@@ -164,16 +165,16 @@ mcp = FastMCP(
 )
 
 # 业务层实例（全局单例）
-_vector_store: Optional[VectorStore] = None
-_meta_store: Optional[MetaStore] = None
+_vector_store: Optional[QdrantStore] = None
+_meta_store: Optional[BaseMetaStore] = None
 _memory_manager: Optional[MemoryManager] = None
 
 
 def _init_services():
     """初始化业务层服务"""
     global _vector_store, _meta_store, _memory_manager
-    _vector_store = VectorStore()
-    _meta_store = MetaStore()
+    _meta_store = create_meta_store()
+    _vector_store = QdrantStore(meta_store=_meta_store)
     _memory_manager = MemoryManager(vector_store=_vector_store, meta_store=_meta_store)
     logger.info("Engrama 业务层初始化完成")
 

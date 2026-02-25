@@ -2,6 +2,46 @@
 
 本项目遵循 [Semantic Versioning](https://semver.org/) 版本规范。
 
+## [0.5.1] - 2026-02-25
+
+### 🔒 安全加固
+- **强制阻断渠道管理越权漏洞（CVE 防护级别）** — `api/middleware.py` 严格拦截未配置 `ENGRAMA_ADMIN_TOKEN` 时的渠道侧接口调用。此前在未配置 Token 的开发环境模式下，系统会放行租户注册请求。由于此配置往往被粗心用户直接带入生产环境从而导致“裸奔”，现已完全废弃这种包容行为，改为全环境强制 `403 Forbidden` 拦截，杜绝基座资源被非法滥用注册的风险。
+
+### 📚 文档与工程规范
+- **重构为 Diátaxis 架构** — 将原大而全的单体文档重新整理，精简 `README.md`，新增独立的 `TUTORIAL-how-to.md` 指南文件。
+- **自动化测试注入** — 为集成测试组件和 `conftest.py` 提供全量的 Mock 鉴权请求头注入，以应对收紧后的安全拦截策略。
+
+## [0.5.0] - 2026-02-24
+
+### 🚀 重大重构
+- **独立的 Embedding 推理引擎** — 将模型从主进程内嵌的 `SentenceTransformer` 迁移至外部的文本嵌入推理引擎 (TEI)，使用高性能 Rust 编写。根除 Mac MPS 和多进程下加载模型造成的内存泄漏或 OutOfMemory 奔溃。
+- **存储后端升级** — 将原本基于文件系统的 SQLite 与 ChromaDB 升级为正式的 PostgreSQL 与 Qdrant 组合。新增 `PostgresMetaStore` 和 `QdrantStore` 控制类，提升稳定性、性能和可扩展性。
+- **多容器编排** — 提供开箱即用的 Docker Compose 堆栈，支持一键部署 Postgres, Qdrant 和分离的 TEI 服务引擎。
+- **环境安全配置升级** — 引入 `python-dotenv`。全面清理代码中的硬编码密码，迁移至 `.env` 文件。支持基于 `.env.example` 快速启动，`.gitignore` 拦截机制确保生产密钥安全。
+- **测试防误删机制 (Failsafe)** — 集成测试包含清表操作。在测试引导配置入口添加严格的环境和数据库名字母校验锁，防止误操作引发生产库数据销毁 (`DROP/TRUNCATE`) 漏洞。
+
+## [0.4.4] - 2026-02-24
+
+### 📦 依赖修复
+- **移除 Numpy/Transformers 降级限制** — 解决了由包体冲突导致的冗余降级限制，更新为 `transformers>=4.41.0` 与 `numpy>=1.26.0`。
+
+### 🐛 缺陷修复
+- **Python 3.12 警告清理** — `meta_store.py` 修复了 SQLite 原生驱动对 `datetime` 直接插入时报出的 `DeprecationWarning`，将字段存储转为显式的 `.isoformat()` 字符串序列化，令全量测试清爽通过。
+
+## [0.4.3] - 2026-02-23
+
+### 🐛 缺陷修复
+- **速率限制器逻辑修复** — `rate_limiter.py` 修复了 `del` 后被 `defaultdict` 立即重建导致清理无效的 bug，重构为先过滤再判断的正确流程。
+- **SQLite 外键约束生效** — `meta_store.py` 新增 `PRAGMA foreign_keys=ON`，使表定义中的 `FOREIGN KEY` 声明真正生效，防止数据完整性被破坏。
+- **级联删除适配外键** — 删除租户/项目时，关联的 API Key 从软删除改为物理删除，与启用的外键约束保持一致，消除 `IntegrityError`。
+- **Collection 名称哈希碰撞风险降低** — `vector_store.py` 将 `_collection_name` 的截断后缀哈希从 MD5 改为 SHA-256，碰撞概率从 2^-32 降至 2^-32（同样 8 字符，但 SHA-256 分布更均匀）。
+- **`_sanitize` 覆盖面扩大** — 使用正则 `[^a-zA-Z0-9_]` 替代手工替换 `-` 和 `@`，能正确处理空格、斜杠、点号、中文等 ChromaDB 不允许的字符。
+
+### 🔧 改进
+- **API 响应字段语义修正** — `SearchResultResponse` 和 `HistoryResponse` 的 `total` 字段重命名为 `count`，明确表示"本次返回数量"而非误导性的"总匹配数"。
+- **`get_stats` 加载上限** — 统计查询增加 `limit=10000` 防护，避免海量记忆时一次性加载全部 metadata 导致内存问题。
+- **测试基础设施优化** — 提取重复的 `tmp_dir` fixture 到 `tests/conftest.py`，消除 6 个测试文件中的重复定义；`test_mcp.py` 改用 `monkeypatch.setenv` 替代直接操作 `os.environ`，确保异常退出时环境变量被正确清理。
+
 ## [0.4.2] - 2026-02-23
 
 ### 🐛 缺陷修复 & 安全加固

@@ -13,6 +13,7 @@ API Key 认证中间件 + 管理员 Token 认证
   线程池中运行它们，与 MetaStore 的 threading.local 策略保持一致。
 """
 
+import asyncio
 import hmac
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -20,7 +21,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from engrama import config
 from engrama.logger import get_logger
-from engrama.store.meta_store import MetaStore
+from engrama.store.base_meta_store import BaseMetaStore
 
 logger = get_logger(__name__)
 
@@ -54,9 +55,13 @@ class ApiKeyAuthMiddleware(BaseHTTPMiddleware):
 
     async def _check_admin_token(self, request: Request, call_next):
         """验证管理员 Token"""
-        # 如果未设置管理员 Token（开发模式），允许免认证访问
+        # 如果未设置管理员 Token，出安全原因直接阻断渠道接口
         if not config.ADMIN_TOKEN:
-            return await call_next(request)
+            logger.error("安全拦截: 尝试访问渠道接口，但系统未配置 ENGRAMA_ADMIN_TOKEN")
+            return JSONResponse(
+                status_code=403,
+                content={"error": "forbidden", "detail": "系统核心配置缺失: 请先在环境变量中配置 ENGRAMA_ADMIN_TOKEN，否则无法调用渠道管理 API！"},
+            )
 
         admin_token = request.headers.get("X-Admin-Token")
         if not admin_token:
@@ -92,7 +97,7 @@ class ApiKeyAuthMiddleware(BaseHTTPMiddleware):
                 content={"error": "internal_error", "detail": "存储服务未就绪"},
             )
 
-        api_key = meta_store.verify_api_key(api_key_value)
+        api_key = await asyncio.to_thread(meta_store.verify_api_key, api_key_value)
         if api_key is None:
             logger.warning("无效的 API Key 尝试")
             return JSONResponse(

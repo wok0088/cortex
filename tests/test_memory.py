@@ -5,30 +5,25 @@
 """
 
 import os
-import shutil
-import tempfile
 
 import pytest
 
 from engrama.models import MemoryType, Role
-from engrama.store.vector_store import VectorStore
-from engrama.store.meta_store import MetaStore
+from engrama.store.qdrant_store import QdrantStore
+from engrama.store.base_meta_store import BaseMetaStore
+from engrama.store import create_meta_store
 from engrama.memory_manager import MemoryManager
 
 
 @pytest.fixture
-def tmp_dir():
-    """创建临时目录"""
-    d = tempfile.mkdtemp()
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
-
-
-@pytest.fixture
-def manager(tmp_dir):
+def manager():
     """创建 MemoryManager 实例"""
-    vs = VectorStore(persist_directory=os.path.join(tmp_dir, "chroma"))
-    ms = MetaStore(db_path=os.path.join(tmp_dir, "meta.db"))
+    import engrama.config as config
+
+
+
+    ms = create_meta_store()
+    vs = QdrantStore(meta_store=ms)
     return MemoryManager(vector_store=vs, meta_store=ms)
 
 

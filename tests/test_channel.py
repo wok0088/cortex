@@ -5,26 +5,18 @@
 """
 
 import os
-import shutil
-import tempfile
 
 import pytest
 
-from engrama.store.meta_store import MetaStore
+from engrama.store.base_meta_store import BaseMetaStore
+from engrama.store import create_meta_store
 from engrama.channel_manager import ChannelManager
 
 
-@pytest.fixture
-def tmp_dir():
-    d = tempfile.mkdtemp()
-    yield d
-    shutil.rmtree(d, ignore_errors=True)
-
-
-@pytest.fixture
-def cm(tmp_dir):
+@pytest.fixture(scope="module")
+def cm():
     """创建 ChannelManager 实例"""
-    ms = MetaStore(db_path=os.path.join(tmp_dir, "meta.db"))
+    ms = create_meta_store()
     return ChannelManager(meta_store=ms)
 
 
