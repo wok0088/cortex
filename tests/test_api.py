@@ -28,22 +28,24 @@ class TestAPI:
 
     def _setup_channel(self, client) -> tuple[str, str, str, str]:
         """创建租户 + 项目 + API Key，返回 (tenant_id, project_id, api_key, key_id)"""
+        headers = {"X-Admin-Token": "test_super_secret_token"}
+        
         # 注册租户
-        resp = client.post("/v1/channels/tenants", json={"name": "测试公司"})
+        resp = client.post("/v1/channels/tenants", json={"name": "测试公司"}, headers=headers)
         assert resp.status_code == 200
         tenant_id = resp.json()["id"]
 
         # 创建项目
         resp = client.post("/v1/channels/projects", json={
             "tenant_id": tenant_id, "name": "测试项目"
-        })
+        }, headers=headers)
         assert resp.status_code == 200
         project_id = resp.json()["id"]
 
         # 生成 API Key
         resp = client.post("/v1/channels/api-keys", json={
             "tenant_id": tenant_id, "project_id": project_id
-        })
+        }, headers=headers)
         assert resp.status_code == 200
         data = resp.json()
         api_key = data["key"]
@@ -74,7 +76,8 @@ class TestAPI:
 
     def test_register_tenant(self, client):
         """注册租户"""
-        resp = client.post("/v1/channels/tenants", json={"name": "携程旅行"})
+        headers = {"X-Admin-Token": "test_super_secret_token"}
+        resp = client.post("/v1/channels/tenants", json={"name": "携程旅行"}, headers=headers)
         assert resp.status_code == 200
         data = resp.json()
         assert data["name"] == "携程旅行"
@@ -82,12 +85,13 @@ class TestAPI:
 
     def test_create_project(self, client):
         """创建项目"""
-        resp = client.post("/v1/channels/tenants", json={"name": "租户"})
+        headers = {"X-Admin-Token": "test_super_secret_token"}
+        resp = client.post("/v1/channels/tenants", json={"name": "租户"}, headers=headers)
         tenant_id = resp.json()["id"]
 
         resp = client.post("/v1/channels/projects", json={
             "tenant_id": tenant_id, "name": "酒店 AI"
-        })
+        }, headers=headers)
         assert resp.status_code == 200
         assert resp.json()["name"] == "酒店 AI"
 
@@ -99,9 +103,10 @@ class TestAPI:
 
     def test_list_tenants(self, client):
         """列出租户"""
-        client.post("/v1/channels/tenants", json={"name": "A"})
-        client.post("/v1/channels/tenants", json={"name": "B"})
-        resp = client.get("/v1/channels/tenants")
+        headers = {"X-Admin-Token": "test_super_secret_token"}
+        client.post("/v1/channels/tenants", json={"name": "A"}, headers=headers)
+        client.post("/v1/channels/tenants", json={"name": "B"}, headers=headers)
+        resp = client.get("/v1/channels/tenants", headers=headers)
         assert resp.status_code == 200
         assert len(resp.json()) >= 2
 
@@ -112,8 +117,9 @@ class TestAPI:
     def test_list_api_keys(self, client):
         """列出项目下的 API Key"""
         tenant_id, project_id, _, key_id = self._setup_channel(client)
+        headers = {"X-Admin-Token": "test_super_secret_token"}
 
-        resp = client.get("/v1/channels/api-keys", params={"project_id": project_id})
+        resp = client.get("/v1/channels/api-keys", params={"project_id": project_id}, headers=headers)
         assert resp.status_code == 200
         keys = resp.json()
         assert len(keys) >= 1
@@ -124,9 +130,10 @@ class TestAPI:
     def test_revoke_api_key(self, client):
         """按 key_id 吊销 API Key"""
         tenant_id, project_id, api_key, key_id = self._setup_channel(client)
+        headers = {"X-Admin-Token": "test_super_secret_token"}
 
         # 吊销
-        resp = client.delete(f"/v1/channels/api-keys/{key_id}")
+        resp = client.delete(f"/v1/channels/api-keys/{key_id}", headers=headers)
         assert resp.status_code == 200
 
         # 再用原始 Key 调用应返回 401
@@ -144,12 +151,13 @@ class TestAPI:
     def test_delete_tenant(self, client):
         """删除租户及其所有项目和 Key"""
         tenant_id, project_id, api_key, key_id = self._setup_channel(client)
+        headers = {"X-Admin-Token": "test_super_secret_token"}
 
-        resp = client.delete(f"/v1/channels/tenants/{tenant_id}")
+        resp = client.delete(f"/v1/channels/tenants/{tenant_id}", headers=headers)
         assert resp.status_code == 200
 
         # 租户不存在了
-        resp = client.get("/v1/channels/tenants")
+        resp = client.get("/v1/channels/tenants", headers=headers)
         tenant_ids = [t["id"] for t in resp.json()]
         assert tenant_id not in tenant_ids
 
@@ -163,7 +171,8 @@ class TestAPI:
 
     def test_delete_tenant_nonexistent(self, client):
         """删除不存在的租户返回 404"""
-        resp = client.delete("/v1/channels/tenants/nonexistent")
+        headers = {"X-Admin-Token": "test_super_secret_token"}
+        resp = client.delete("/v1/channels/tenants/nonexistent", headers=headers)
         assert resp.status_code == 404
 
     # ----------------------------------------------------------
@@ -173,11 +182,13 @@ class TestAPI:
     def test_delete_project_with_tenant_check(self, client):
         """删除项目时需传入正确的 tenant_id"""
         tenant_id, project_id, _, _ = self._setup_channel(client)
+        headers = {"X-Admin-Token": "test_super_secret_token"}
 
         # 用错误的 tenant_id 删除 → 404
         resp = client.delete(
             f"/v1/channels/projects/{project_id}",
             params={"tenant_id": "wrong_tenant"},
+            headers=headers
         )
         assert resp.status_code == 404
 
@@ -185,6 +196,7 @@ class TestAPI:
         resp = client.delete(
             f"/v1/channels/projects/{project_id}",
             params={"tenant_id": tenant_id},
+            headers=headers
         )
         assert resp.status_code == 200
 
@@ -229,6 +241,7 @@ class TestAPI:
     def test_personal_key_behavior(self, client):
         """测试用户级 Key：可以省略 user_id，传入不同的 user_id 会 403"""
         tenant_id, project_id, project_key, _ = self._setup_channel(client)
+        admin_headers = {"X-Admin-Token": "test_super_secret_token"}
 
         # 1. 生成用户级 Key
         req = {
@@ -236,7 +249,7 @@ class TestAPI:
             "project_id": project_id,
             "user_id": "zhangsan"
         }
-        res = client.post("/v1/channels/api-keys", json=req)
+        res = client.post("/v1/channels/api-keys", json=req, headers=admin_headers)
         personal_key = res.json()["key"]
 
         # 2. 正常调用：省略 user_id 自动使用绑定值

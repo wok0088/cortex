@@ -18,7 +18,7 @@ def client_with_redis_rate_limit(tmp_dir, monkeypatch):
     """使用限制频率（13次/分）的配置启动客户端，并 Mock Redis"""
     monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 13)
     monkeypatch.setattr(config, "REDIS_URL", "redis://localhost")
-    monkeypatch.setattr(config, "ADMIN_TOKEN", "")
+    monkeypatch.setattr(config, "ADMIN_TOKEN", "test_super_secret_token")
     monkeypatch.setattr(config, "DATA_DIR", tmp_dir)
 
 
@@ -59,13 +59,14 @@ def client_with_redis_rate_limit(tmp_dir, monkeypatch):
 def test_rate_limiter_exceeds_limit(client_with_redis_rate_limit):
     """测试超过频率限制会被拒绝（Redis 模式），并测试状态 429"""
     # 获取一个正常的 api key 用于测试
-    resp = client_with_redis_rate_limit.post("/v1/channels/tenants", json={"name": "t1"})
+    admin_headers = {"X-Admin-Token": "test_super_secret_token"}
+    resp = client_with_redis_rate_limit.post("/v1/channels/tenants", json={"name": "t1"}, headers=admin_headers)
     tenant_id = resp.json()["id"]
 
-    resp = client_with_redis_rate_limit.post("/v1/channels/projects", json={"tenant_id": tenant_id, "name": "p1"})
+    resp = client_with_redis_rate_limit.post("/v1/channels/projects", json={"tenant_id": tenant_id, "name": "p1"}, headers=admin_headers)
     project_id = resp.json()["id"]
 
-    resp = client_with_redis_rate_limit.post("/v1/channels/api-keys", json={"tenant_id": tenant_id, "project_id": project_id})
+    resp = client_with_redis_rate_limit.post("/v1/channels/api-keys", json={"tenant_id": tenant_id, "project_id": project_id}, headers=admin_headers)
     api_key = resp.json()["key"]
 
     # 模拟发送 15 个请求 (限制为 13)
@@ -92,7 +93,7 @@ def client_with_memory_rate_limit(tmp_dir, monkeypatch):
     """使用内存限流模式（无 Redis）"""
     monkeypatch.setattr(config, "RATE_LIMIT_PER_MINUTE", 5)
     monkeypatch.setattr(config, "REDIS_URL", "")  # 无 Redis
-    monkeypatch.setattr(config, "ADMIN_TOKEN", "")
+    monkeypatch.setattr(config, "ADMIN_TOKEN", "test_super_secret_token")
     monkeypatch.setattr(config, "DATA_DIR", tmp_dir)
 
 
@@ -106,13 +107,14 @@ def client_with_memory_rate_limit(tmp_dir, monkeypatch):
 def test_memory_rate_limiter_works(client_with_memory_rate_limit):
     """测试内存降级模式下限流仍生效"""
     # 获取 api key
-    resp = client_with_memory_rate_limit.post("/v1/channels/tenants", json={"name": "t1"})
+    admin_headers = {"X-Admin-Token": "test_super_secret_token"}
+    resp = client_with_memory_rate_limit.post("/v1/channels/tenants", json={"name": "t1"}, headers=admin_headers)
     tenant_id = resp.json()["id"]
 
-    resp = client_with_memory_rate_limit.post("/v1/channels/projects", json={"tenant_id": tenant_id, "name": "p1"})
+    resp = client_with_memory_rate_limit.post("/v1/channels/projects", json={"tenant_id": tenant_id, "name": "p1"}, headers=admin_headers)
     project_id = resp.json()["id"]
 
-    resp = client_with_memory_rate_limit.post("/v1/channels/api-keys", json={"tenant_id": tenant_id, "project_id": project_id})
+    resp = client_with_memory_rate_limit.post("/v1/channels/api-keys", json={"tenant_id": tenant_id, "project_id": project_id}, headers=admin_headers)
     api_key = resp.json()["key"]
 
     # 发送 8 个请求（限制为 5）
@@ -136,13 +138,14 @@ def test_memory_rate_limiter_works(client_with_memory_rate_limit):
 
 def test_rate_limiter_allows_under_limit(client_with_memory_rate_limit):
     """测试未超限的请求正常放行"""
-    resp = client_with_memory_rate_limit.post("/v1/channels/tenants", json={"name": "t1"})
+    admin_headers = {"X-Admin-Token": "test_super_secret_token"}
+    resp = client_with_memory_rate_limit.post("/v1/channels/tenants", json={"name": "t1"}, headers=admin_headers)
     tenant_id = resp.json()["id"]
 
-    resp = client_with_memory_rate_limit.post("/v1/channels/projects", json={"tenant_id": tenant_id, "name": "p1"})
+    resp = client_with_memory_rate_limit.post("/v1/channels/projects", json={"tenant_id": tenant_id, "name": "p1"}, headers=admin_headers)
     project_id = resp.json()["id"]
 
-    resp = client_with_memory_rate_limit.post("/v1/channels/api-keys", json={"tenant_id": tenant_id, "project_id": project_id})
+    resp = client_with_memory_rate_limit.post("/v1/channels/api-keys", json={"tenant_id": tenant_id, "project_id": project_id}, headers=admin_headers)
     api_key = resp.json()["key"]
 
     # 只发 1 个请求，远未超限
