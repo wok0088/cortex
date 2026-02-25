@@ -47,9 +47,35 @@ def qdrant():
     yield client
     client.close()
 
+@pytest.fixture(scope="session", autouse=True)
+def ensure_qdrant_collection(qdrant):
+    """确保 Qdrant Collection 在测试会话中存在（只创建一次，避免 94 次重建）"""
+    from qdrant_client.http import models as rest
+    # 先尝试删除旧的，确保干净状态
+    try:
+        qdrant.delete_collection(COLLECTION_NAME)
+    except Exception:
+        pass
+    qdrant.create_collection(
+        collection_name=COLLECTION_NAME,
+        vectors_config=rest.VectorParams(
+            size=config.EMBEDDING_VECTOR_SIZE,
+            distance=rest.Distance.COSINE
+        )
+    )
+    # 建索引（整个测试会话只做一次）
+    for field in ["tenant_id", "project_id", "user_id", "memory_type", "session_id"]:
+        qdrant.create_payload_index(
+            collection_name=COLLECTION_NAME,
+            field_name=field,
+            field_schema=rest.PayloadSchemaType.KEYWORD
+        )
+    yield
+
+
 @pytest.fixture(autouse=True)
 def clean_databases(db_pool, qdrant):
-    """每次测试前清理数据库，依靠复用的连接，确保极速执行"""
+    """每次测试前清理数据库，保留 Collection 结构和索引，只清除数据点"""
     # 1. 清理 PostgreSQL 数据
     with db_pool.connection() as conn:
         with conn.cursor() as cur:
@@ -60,13 +86,31 @@ def clean_databases(db_pool, qdrant):
             except Exception:
                 conn.rollback()
 
-    # 2. 清理并重建 Qdrant Collection
-    from qdrant_client.models import VectorParams, Distance
+    # 2. 清理 Qdrant Collection 中的所有点（保留结构和索引）
+    from qdrant_client.http import models as rest
     try:
-        qdrant.recreate_collection(
-            collection_name=COLLECTION_NAME,
-            vectors_config=VectorParams(size=config.EMBEDDING_VECTOR_SIZE, distance=Distance.COSINE)
-        )
+        # 滚动获取所有点的 ID 并批量删除
+        all_ids = []
+        offset = None
+        while True:
+            records, next_offset = qdrant.scroll(
+                collection_name=COLLECTION_NAME,
+                limit=1000,
+                offset=offset,
+                with_payload=False,
+                with_vectors=False,
+            )
+            if not records:
+                break
+            all_ids.extend([r.id for r in records])
+            if next_offset is None:
+                break
+            offset = next_offset
+        if all_ids:
+            qdrant.delete(
+                collection_name=COLLECTION_NAME,
+                points_selector=rest.PointIdsList(points=all_ids),
+            )
     except Exception:
         pass
 
