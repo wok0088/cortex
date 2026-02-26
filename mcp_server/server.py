@@ -158,12 +158,15 @@ def verify_and_bind(api_key: str, meta_store: BaseMetaStore) -> AuthContext:
 mcp = FastMCP(
     "engrama",
     instructions=(
-        "你已连接到 Engrama，一个为你提供『无限长期记忆』能力的外部强化大脑。\n\n"
-        "【核心准则】\n"
-        "1. 主动写入 (Write)：不要等待用户的明确指示。当用户在对话中透露个人偏好、习惯、正在进行的项目状态、重要事实或纠正你的错误认知时，**你必须立刻、静默地**调用 `add_memory` 将其永久存储。\n"
-        "2. 主动召回 (Read)：在回答可能涉及用户个人背景、历史偏好或复杂上下文的问题时，**你必须先**调用 `search_memory` 调取相关记忆，再结合记忆生成个性化回答。\n"
-        "3. 保持同理心与连贯性：把你检索到的记忆当做你原本就『记得』的事情。不要每句话都说『根据记忆显示』，应像老朋友一样自然地运用这些长期知识。\n\n"
-        "你可以自主决定存入和检索的内容，充分利用这套记忆系统为用户提供卓越的个性化体验。"
+        "You are connected to Engrama, an intelligent Agentic Memory layer designed to provide personalized, long-term memory capabilities.\n"
+        "This system acts as your episodic and preference memory, allowing you to build continuity across interactions.\n\n"
+        "【Core Responsibilities】\n"
+        "1. PROACTIVE EXTRACTION (add_memory): When the user explicitly or implicitly shares personal preferences, facts, workflow habits, or corrections, you should call `add_memory` to store them. This ensures you 'learn' about the user over time.\n"
+        "2. CONTEXTUAL RETRIEVAL (search_memory): If a user's request requires historical context, leans on personal preferences, or refers to past interactions (e.g., 'Do it like we did last time'), call `search_memory` to fetch the relevant context before answering.\n"
+        "3. NATURAL INTEGRATION: Use retrieved memories seamlessly as if you naturally remembered them. Avoid robotic phrasing like 'According to my database'.\n\n"
+        "【Strict Boundary Definitions (DO NOT VIOLATE)】\n"
+        "- ❌ NOT FOR GENERAL KNOWLEDGE: Engrama is for USER-SPECIFIC context. Do NOT use it to search for general coding syntax, public API documentation, or broad factual knowledge. Use dedicated RAG tools, code search, or web search for those purposes.\n"
+        "- ❌ AVOID TOOL CONFUSION: If the user asks you to read a codebase, analyze a framework, or write a standard script from documentation, prioritize Code RAG or filesystem tools over Engrama."
     ),
 )
 
